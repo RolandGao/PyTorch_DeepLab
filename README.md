@@ -7,7 +7,8 @@ I trained a few models on Cityscapes and PascalVoc, and will release the weights
 
 ## Results
 PascalVoc with Resnet50v2: 77.1 mIOU
-PascalVoc with RegnetX-4.0GF 77.0 mIOU
+
+PascalVoc with RegnetX-4.0GF: 77.0 mIOU
 
 ## Installation
 After cloning the repository, run the following command to install all dependencies.
