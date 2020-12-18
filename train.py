@@ -1,11 +1,12 @@
 from model import Deeplab3P
-from data import get_cityscapes,get_coco,get_pascal_voc
+from data import get_cityscapes,get_pascal_voc
 import datetime
 import time
 
 import torch
 import torch.utils.data
 from torch import nn
+import numpy as np
 import torch.nn.functional
 
 class ConfusionMatrix(object):
@@ -117,7 +118,7 @@ def train(model, path, epochs,optimizer, data_loader, data_loader_test, lr_sched
     best_mIU=0
     for epoch in epochs:
         train_one_epoch(model, criterion2, optimizer, data_loader, lr_scheduler,
-                        device, epoch, print_freq=1, max_iter=max_iter,w=w)
+                        device, epoch, print_freq=50, max_iter=max_iter,w=w)
         confmat = evaluate(model, data_loader_test, device=device,
                            num_classes=num_classes,eval_steps=eval_steps)
         print(confmat)
@@ -132,24 +133,22 @@ def train(model, path, epochs,optimizer, data_loader, data_loader_test, lr_sched
     print('Training time {}'.format(total_time_str))
 
 def main():
-    num_classes = 19
+    num_classes = 21
     batch_size=16
     epochs=30
-    resume = False
+    resume = True
     lr = 0.01
     momentum = 0.9
     weight_decay = 1e-4
-    dataset_path="cityscapes_dataset"
     data_loader, data_loader_test=get_pascal_voc("pascal_voc_dataset",batch_size)
-    eval_steps=len(data_loader_test)
-    resume_path = ''
-    save_path = ''
-
+    eval_steps=300
+    resume_path = '/content/voc_regnetx40'
+    save_path = '/content/drive/My Drive/voc_regnetx40'
 
     device = torch.device('cuda') if torch.cuda.is_available() else torch.device('cpu')
     epoch_start=0
     max_iter=len(data_loader)*1.0
-    model=Deeplab3P(name="mobilenetv2_100",num_classes=num_classes,pretrained="").to(device)
+    model=Deeplab3P(name='regnetx_040',num_classes=num_classes,pretrained="").to(device)
     params_to_optimize=model.parameters()
     optimizer = torch.optim.SGD(params_to_optimize, lr=lr,
                                 momentum=momentum, weight_decay=weight_decay)
@@ -169,10 +168,12 @@ def main():
 def check():
     device = torch.device(
         'cuda') if torch.cuda.is_available() else torch.device('cpu')
-    num_classes = 19
-    data_loader, data_loader_test=get_cityscapes("root",16)
+    num_classes = 21
+    pretrained_path='/content/drive/My Drive/Colab Notebooks/voc_50d'
+    #data_loader, data_loader_test=get_cityscapes("root",16)
+    data_loader, data_loader_test=get_pascal_voc("pascal_voc_dataset",16)
     eval_steps = len(data_loader_test)
-    model=Deeplab3P(name="mobilenetv2_100",num_classes=num_classes,pretrained="").to(
+    model=Deeplab3P(name="resnet50d",num_classes=num_classes,pretrained=pretrained_path).to(
         device)
     print("evaluating")
     confmat = evaluate(model, data_loader_test, device=device,
