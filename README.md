@@ -14,14 +14,14 @@ After cloning the repository, run the following command to install all dependenc
 pip install -r requirements.txt
 
 ## Datasets
-####COCO
+#### COCO
 run the command
 ```shell
 sh coco_download.sh
 ```
 We use the 21 classes that intersect PascalVoc's.
 
-####Cityscapes
+#### Cityscapes
 go to https://www.cityscapes-dataset.com, create an account, and download 
 gtFine_trainvaltest.zip and leftImg8bit_trainvaltest.zip.
 You can delete the test images to save some space if you don't want to submit to the competition.
@@ -32,7 +32,7 @@ CITYSCAPES_DATASET=cityscapes_dataset csCreateTrainIdLabelImgs
 ```
 There are 19 classes.
 
-####PascalVoc
+#### PascalVoc
 Download the original dataset [here](http://host.robots.ox.ac.uk/pascal/VOC/voc2012/VOCtrainval_11-May-2012.tar).
 
 Then download the augmented dataset [here](https://www.dropbox.com/s/oeu149j8qtbs1x0/SegmentationClassAug.zip?dl=0),
@@ -47,7 +47,7 @@ There are 21 claases.
 Credits to https://www.sun11.me/blog/2018/how-to-use-10582-trainaug-images-on-DeeplabV3-code/
 
 
-####Once you have downloaded the dataset
+#### Once you have downloaded the dataset
 do one of the following three lines in train.py
 ```
 data_loader, data_loader_test=get_coco(root,batch_size=16)
