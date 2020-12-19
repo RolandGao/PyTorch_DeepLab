@@ -148,7 +148,7 @@ def main():
     device = torch.device('cuda') if torch.cuda.is_available() else torch.device('cpu')
     epoch_start=0
     max_iter=len(data_loader)*1.0
-    model=Deeplab3P(name='regnetx_040',num_classes=num_classes,pretrained="").to(device)
+    model=Deeplab3P(name='regnetx_040',num_classes=num_classes,pretrained_backbone=True,sc=False).to(device)
     params_to_optimize=model.parameters()
     optimizer = torch.optim.SGD(params_to_optimize, lr=lr,
                                 momentum=momentum, weight_decay=weight_decay)
@@ -170,7 +170,6 @@ def check():
         'cuda') if torch.cuda.is_available() else torch.device('cpu')
     num_classes = 21
     pretrained_path='/content/drive/My Drive/Colab Notebooks/voc_50d'
-    #data_loader, data_loader_test=get_cityscapes("root",16)
     data_loader, data_loader_test=get_pascal_voc("pascal_voc_dataset",16)
     eval_steps = len(data_loader_test)
     model=Deeplab3P(name="resnet50d",num_classes=num_classes,pretrained=pretrained_path).to(
