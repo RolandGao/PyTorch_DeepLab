@@ -15,7 +15,7 @@ def replace(output_stride=8):
     return d
 
 class Deeplab3P(nn.Module):
-    def __init__(self, name="mobilenetv2_100",num_classes=21,pretrained="",pretrained_backbone=True):
+    def __init__(self, name="mobilenetv2_100",num_classes=21,pretrained="",pretrained_backbone=True,sc_aspp=False):
         super(Deeplab3P,self).__init__()
         output_stride = 16
         num_filters = 256
@@ -38,9 +38,14 @@ class Deeplab3P(nn.Module):
         nn.Conv2d(num_filters, num_classes, 1)
         )
         self.decoder = convert_to_separable_conv(self.decoder)
+        if sc_aspp:
+            self.head16=convert_to_separable_conv(self.head16)
         if pretrained != "":
             dic = torch.load(pretrained, map_location='cpu')
-            self.load_state_dict(dic['model'])
+            if type(dic)==dict:
+                self.load_state_dict(dic['model'])
+            else:
+                self.load_state_dict(dic)
 
     def forward(self, x):
         input_shape = x.shape[-2:]
@@ -81,29 +86,52 @@ def total_params(models):
         total=round(total/1000000,2)
         print(f"{model.__class__.__name__}: {total}M")
 
-# def profiler2(models):
-#     from ptflops import get_model_complexity_info
-#     for model in models:
-#         macs, params = get_model_complexity_info(model, (3, 480, 480),
-#                                                  as_strings=True,
-#                                                  print_per_layer_stat=False,
-#                                                  verbose=False)
-#         print(f"{model.__class__.__name__}: {macs}, {params}")
+def profiler2(models):
+    from ptflops import get_model_complexity_info
+    for model in models:
+        macs, params = get_model_complexity_info(model, (3, 480, 480),
+                                                 as_strings=True,
+                                                 print_per_layer_stat=False,
+                                                 verbose=False)
+        print(f"{model.__class__.__name__}: {macs}, {params}")
+
+def memory_test_helper(model,device):
+    model.train()
+    N=2
+    x=torch.randn(N, 3, 513, 513).to(device)
+    target=torch.randint(0,19,(N, 513, 513)).to(device)
+    print(target.shape)
+    #print(torch.cuda.memory_allocated(device))
+    x=model(x)
+    #print(torch.cuda.memory_allocated(device))
+    loss=nn.functional.cross_entropy(x,target,ignore_index=255)
+    loss.backward()
+    #print(torch.cuda.memory_allocated(device))
+
+def memory_test(models,device):
+    for model in models:
+        memory_test_helper(model,device)
 if __name__=='__main__':
+    device = torch.device('cuda') if torch.cuda.is_available() else torch.device('cpu')
+
     #50d checkpoint 77.1 mIOU
+    #regnetx_040 77.0 mIOU
     num_classes=21
-    print(timm.list_models())
-    model = Deeplab3P(name='regnetx_040', num_classes=19, pretrained="",pretrained_backbone=False)
-    names = [
-        'resnet50',
-        'resnet50d',
-        'resnest50d',
-        'mobilenetv2_100',
-        'regnetx_032',
-        'regnetx_040'
-    ]
-    models = []
-    for name in names:
-        models.append(Deeplab3P(name=name, num_classes=21, pretrained="",pretrained_backbone=False))
-        #models.append(timm.create_model(name, features_only=True))
-    profiler(models)
+    #print(timm.list_models())
+    model = Deeplab3P(name='resnet50d', num_classes=21, pretrained="",pretrained_backbone=False).to(device)
+    model2=Deeplab3P(name='resnet50d', num_classes=21, pretrained="",pretrained_backbone=False,sc_aspp=True)
+    memory_test(model,device)
+    #profiler([model,model2])
+    #profiler2([model,model2])
+    # names = [
+    #     'resnet50',
+    #     'resnet50d',
+    #     'mobilenetv2_100',
+    #     'regnetx_040',
+    #     'regnety_040'
+    # ]
+    # models = []
+    # for name in names:
+    #     #models.append(Deeplab3P(name=name, num_classes=21, pretrained="",pretrained_backbone=False))
+    #     models.append(timm.create_model(name, features_only=True))
+    # profiler2(models)

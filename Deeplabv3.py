@@ -9,7 +9,7 @@ class AtrousSeparableConvolution(nn.Sequential):
         modules=[]
         modules.append(nn.Conv2d(in_channels, in_channels, kernel_size=kernel_size,
                       stride=stride, padding=padding, dilation=dilation,
-                      bias=bias, groups=in_channels))
+                      bias=(not add_norm), groups=in_channels))
         if add_norm:
             modules.append(nn.BatchNorm2d(in_channels))
             modules.append(nn.ReLU(inplace=True))
