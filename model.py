@@ -122,31 +122,23 @@ def memory_test(models,device):
             p.grad=None
 if __name__=='__main__':
     device = torch.device('cuda') if torch.cuda.is_available() else torch.device('cpu')
-
-    #50d checkpoint 77.1 mIOU
+    #resnet50d 77.1 mIOU
     #regnetx_040 77.0 mIOU
+    #regnety_040 78.6 mIOU
+    #mobilenetv2 72.8 mIOU
     num_classes=21
-    #print(timm.list_models())
-    #model=torchvision.models.resnet50()
-    #model2=Deeplab3P(name='resnet50d', num_classes=21, pretrained="",pretrained_backbone=False,sc_aspp=True)
-    # print(model)
-    # memory_test_helper(model,device)
-    # print(model)
-    #profiler([model,model2])
-    #profiler2([model,model2])
-    models=[]
-    for a in [True, False]:
-        for b in [True, False]:
-            models.append(Deeplab3P(name='resnet50', num_classes=21, pretrained="",pretrained_backbone=False,sc_aspp=a,sc_decoder=b))
-    # names = [
-    #     'resnet50',
-    #     'resnet50d',
-    #     'mobilenetv2_100',
-    #     'regnetx_040',
-    #     'regnety_040'
-    # ]
-    # models = []
-    # for name in names:
-    #     models.append(Deeplab3P(name=name, num_classes=21, pretrained="",pretrained_backbone=False))
-    #     #models.append(timm.create_model(name, features_only=True))
+    print(timm.list_models())
+    names = [
+        'resnet50',
+        'resnet50d',
+        'mobilenetv2_100',
+        'regnetx_040',
+        'regnety_040',
+        'xception41',
+        'xception65'
+    ]
+    models = []
+    for name in names:
+        models.append(Deeplab3P(name=name, num_classes=21,pretrained_backbone=False))
+        #models.append(timm.create_model(name, features_only=True))
     profiler(models)

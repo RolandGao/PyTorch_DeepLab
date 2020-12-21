@@ -18,7 +18,7 @@ model | separable convolution | mIOU | weights
 Resnet50v2 | yes | 77.1 | coming
 RegnetX-4.0GF | yes | 77.0 | coming
 RegnetY-4.0GF | no | 78.6 | coming
-Mobilenetv2 | no | coming | coming
+Mobilenetv2 | no | 72.8 | coming
 
 ## Installation
 After cloning the repository, run the following command to install all dependencies.
