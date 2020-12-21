@@ -6,9 +6,19 @@ Currently, the code supports DeepLabv3+ with many common backbones, such as Mobi
 I trained a few models on Cityscapes and PascalVoc, and will release the weights soon.
 
 ## Results
-PascalVoc with Resnet50v2: 77.1 mIOU
 
-PascalVoc with RegnetX-4.0GF: 77.0 mIOU
+Using separable convolution in the decoder 
+reduces model size and the number of flops, 
+but increases the memory requirement by 1 GB during training.
+
+#### PascalVoc
+
+model | separable convolution | mIOU | weights
+--- | --- | --- | ---
+Resnet50v2 | yes | 77.1 | coming
+RegnetX-4.0GF | yes | 77.0 | coming
+RegnetY-4.0GF | no | 78.6 | coming
+Mobilenetv2 | no | coming | coming
 
 ## Installation
 After cloning the repository, run the following command to install all dependencies.
