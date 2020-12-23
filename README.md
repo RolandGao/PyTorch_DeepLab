@@ -12,13 +12,19 @@ reduces model size and the number of flops,
 but increases the memory requirement by 1 GB during training.
 
 #### PascalVoc
+To use the weights, click the link, and instantiate an object like the line below, 
+changing the name, sc("separable convolution"), and the path to the pretrained weights that you just downloaded.
 
-model | separable convolution | mIOU | weights
+```
+model=Deeplab3P(name='regnetx_040',num_classes=21,
+sc=False,pretrained=pretrained_path).to(device)
+```
+name | separable convolution | mIOU | weights
 --- | --- | --- | ---
-Resnet50v2 | yes | 77.1 | coming
-RegnetX-4.0GF | yes | 77.0 | coming
-RegnetY-4.0GF | no | 78.6 | coming
-Mobilenetv2 | no | 72.8 | coming
+resnet50d | yes | 77.1 | [link](https://github.com/RolandGao/PyTorch_DeepLab/releases/download/v1.0-alpha/voc_resnet50d)
+regnetx_040 | yes | 77.0 | [link](https://github.com/RolandGao/PyTorch_DeepLab/releases/download/v1.0-alpha/voc_regnetx40)
+regnety_040 | no | 78.6 | [link](https://github.com/RolandGao/PyTorch_DeepLab/releases/download/v1.0-alpha/voc_regnety40)
+mobilenetv2 | no | 72.8 | [link](https://github.com/RolandGao/PyTorch_DeepLab/releases/download/v1.0-alpha/voc_mobilenetv2)
 
 ## Installation
 After cloning the repository, run the following command to install all dependencies.
