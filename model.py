@@ -14,6 +14,31 @@ def replace(output_stride=8):
         d[2-i]=True
     return d
 
+class Deeplab3(nn.Module):
+    def __init__(self,name="mobilenetv2_100",num_classes=21,pretrained="",
+                 pretrained_backbone=True,aspp=True):
+        super(Deeplab3,self).__init__()
+        output_stride = 16
+        self.backbone=timm.create_model(name, features_only=True,
+                                        output_stride=output_stride, out_indices=(4,),pretrained=pretrained_backbone)
+        channels=self.backbone.feature_info.channels()
+        if aspp:
+            self.head=DeepLabHead(channels[0], num_classes,output_stride)
+        else:
+            self.head=DeepLabHeadNoASSP(channels[0], num_classes)
+        if pretrained != "":
+            dic = torch.load(pretrained, map_location='cpu')
+            if type(dic)==dict:
+                self.load_state_dict(dic['model'])
+            else:
+                self.load_state_dict(dic)
+    def forward(self,x):
+        input_shape = x.shape[-2:]
+        x=self.backbone(x)
+        x=self.head(x[0])
+        x = F.interpolate(x, size=input_shape, mode='bilinear',align_corners=False)
+        return x
+
 class Deeplab3P(nn.Module):
     def __init__(self, name="mobilenetv2_100",num_classes=21,pretrained="",
                  pretrained_backbone=True,sc=False):
@@ -128,17 +153,31 @@ if __name__=='__main__':
     #mobilenetv2 72.8 mIOU
     num_classes=21
     print(timm.list_models())
-    names = [
-        'resnet50',
-        'resnet50d',
-        'mobilenetv2_100',
-        'regnetx_040',
-        'regnety_040',
-        'xception41',
-        'xception65'
-    ]
-    models = []
-    for name in names:
-        models.append(Deeplab3P(name=name, num_classes=21,pretrained_backbone=False))
-        #models.append(timm.create_model(name, features_only=True))
+    models=[
+        Deeplab3P(name='mobilenetv2_100', num_classes=21,pretrained_backbone=False),
+        Deeplab3(name='mobilenetv2_100', num_classes=21,pretrained_backbone=False),
+        Deeplab3(name='mobilenetv2_100', num_classes=21,pretrained_backbone=False,aspp=False),
+        Deeplab3P(name='resnet50d', num_classes=21,pretrained_backbone=False),
+        Deeplab3(name='resnet50d', num_classes=21,pretrained_backbone=False),
+        Deeplab3(name='resnet50d', num_classes=21,pretrained_backbone=False,aspp=False)
+        ]
     profiler(models)
+
+
+    #print(x.shape)
+    # names = [
+    #     'efficientnet_b1',
+    #     'regnety_006',
+    #     'mobilenetv2_100',
+    #     'mnasnet_a1',
+    #     'semnasnet_100',
+    #
+    #     'efficientnet_b4',
+    #     'regnety_040',
+    #     'resnet50d'
+    # ]
+    # models = []
+    # for name in names:
+    #     #models.append(Deeplab3P(name=name, num_classes=21,pretrained_backbone=False))
+    #     models.append(timm.create_model(name, features_only=True))
+    # profiler(models)
