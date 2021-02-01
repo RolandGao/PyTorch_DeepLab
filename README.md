@@ -23,7 +23,7 @@ name | separable convolution | mIOU | weights
 --- | --- | --- | ---
 resnet50d | yes | 77.1 | [link](https://github.com/RolandGao/PyTorch_DeepLab/releases/download/v1.0-alpha/voc_resnet50d)
 regnetx_040 | yes | 77.0 | [link](https://github.com/RolandGao/PyTorch_DeepLab/releases/download/v1.0-alpha/voc_regnetx40)
-regnety_040 | no | 78.6 | [link](https://github.com/RolandGao/PyTorch_DeepLab/releases/download/v1.0-alpha/voc_regnety40)
+regnety_040 | yes | 78.6 | [link](https://github.com/RolandGao/PyTorch_DeepLab/releases/download/v1.0-alpha/voc_regnety40)
 mobilenetv2 | no | 72.8 | [link](https://github.com/RolandGao/PyTorch_DeepLab/releases/download/v1.0-alpha/voc_mobilenetv2)
 
 ## Installation

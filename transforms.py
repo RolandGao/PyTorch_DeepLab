@@ -60,6 +60,24 @@ class RandomResize(object):
         target = F.resize(target, size, interpolation=Image.NEAREST)
         return image, target
 
+class ColorJitter:
+    def __init__(self,brightness=0.2, contrast=0.2, saturation=(0.5,4), hue=0.2):
+        self.jitter=T.ColorJitter(brightness=brightness, contrast=contrast, saturation=saturation, hue=hue)
+    def __call__(self, image, target):
+        image=self.jitter(image)
+        return image,target
+
+class AddNoise:#additive gaussian noise
+    def __init__(self,factor):
+        self.factor=factor
+    def __call__(self, image, target):
+        factor = random.uniform(0, self.factor)
+        image = np.array(image)
+        gauss = np.array(torch.randn(*image.shape)) * factor
+        noisy = (image + gauss).clip(0, 255).astype("uint8")
+        image = Image.fromarray(noisy)
+        return image, target
+
 
 class RandomScale(object):
     """

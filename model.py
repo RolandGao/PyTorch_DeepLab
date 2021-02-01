@@ -46,8 +46,13 @@ class Deeplab3P(nn.Module):
         output_stride = 16
         num_filters = 256
         num_low_filters = 48
-        self.backbone=timm.create_model(name, features_only=True,
-                          output_stride=output_stride, out_indices=(1, 4),pretrained=pretrained_backbone)
+        try:
+            self.backbone=timm.create_model(name, features_only=True,
+                          output_stride=output_stride, out_indices=(1, 4),pretrained=pretrained_backbone and pretrained !="")
+        except RuntimeError:
+            print("no model")
+            print(timm.list_models())
+            raise RuntimeError()
         channels=self.backbone.feature_info.channels()
         self.head16=get_ASSP(channels[1], output_stride,num_filters)
         self.head4=torch.nn.Sequential(
@@ -86,10 +91,10 @@ class Deeplab3P(nn.Module):
 
 def profile(model,device):
     import time
-    num_iter=30
+    num_iter=15
     model=model.to(device)
     model.eval()
-    x=torch.randn(1,3,480,480).to(device)
+    x=torch.randn(2,3,321,321).to(device)
     t1=time.time()
     for i in range(num_iter):
         y=model(x)
@@ -98,7 +103,7 @@ def profile(model,device):
 
 def profiler(models):
     device = torch.device('cuda') if torch.cuda.is_available() else torch.device('cpu')
-    model = torchvision.models.resnet101()
+    model = torchvision.models.resnet50()
     print("warming up")
     profile(model, device)
     for model in models:
@@ -127,57 +132,84 @@ def max_memory_used(device):
     x=torch.cuda.max_memory_allocated(device)
     return round(x/1024/1024,4)
 def memory_test_helper(model,device):
+    model=model.to(device)
     model.train()
-    N=2
-    print("begin",memory_used(device))
-    x=torch.randn(N, 3, 513, 513).to(device)
-    target=torch.randint(0,19,(N, 513, 513)).to(device)
-    print("init",memory_used(device))
+    N=16
+    x=torch.randn(N, 3, 481, 481).to(device)
+    target=torch.randint(0,19,(N, 481, 481)).to(device)
+    t1=memory_used(device)
     out=model(x)
-    print("inference",memory_used(device))
     loss=nn.functional.cross_entropy(out,target,ignore_index=255)
     loss.backward()
-    print("gradient",memory_used(device))
+    t2=max_memory_used(device)
+    print(t2-t1)
+    torch.cuda.reset_peak_memory_stats(device)
 
 def memory_test(models,device):
-    for model in models:
-        memory_test_helper(model,device)
-        print()
-        for p in model.parameters():
+    for i in range(len(models)):
+        try:
+            memory_test_helper(models[0],device)
+            print()
+        except:
+            print("out of memory")
+        for p in models[0].parameters():
             p.grad=None
-if __name__=='__main__':
-    device = torch.device('cuda') if torch.cuda.is_available() else torch.device('cpu')
-    #resnet50d 77.1 mIOU
-    #regnetx_040 77.0 mIOU
-    #regnety_040 78.6 mIOU
-    #mobilenetv2 72.8 mIOU
-    num_classes=21
-    print(timm.list_models())
+        del models[0]
+
+def test_separable():
+    model1=nn.Sequential(nn.Conv2d(3,256, 1, padding=0, bias=False),nn.BatchNorm2d(256),nn.ReLU(inplace=True),
+                         nn.Conv2d(256,256, 3, padding=1, bias=False),nn.BatchNorm2d(256),nn.ReLU(inplace=True))
+    model2=nn.Sequential(nn.Conv2d(3,256, 1, padding=0, bias=False),nn.BatchNorm2d(256),nn.ReLU(inplace=True),
+                         nn.Conv2d(256,256, 3, padding=1, bias=False),nn.BatchNorm2d(256),nn.ReLU(inplace=True))
+    model2=convert_to_separable_conv(model2)
+    model3=nn.Sequential(nn.Conv2d(3,256, 1, padding=0, bias=False),nn.BatchNorm2d(256),nn.ReLU(inplace=True),
+                         nn.Conv2d(256,256, 3, padding=2, bias=False,dilation=2),nn.BatchNorm2d(256),nn.ReLU(inplace=True))
+    model4=nn.Sequential(nn.Conv2d(3,256, 1, padding=0, bias=False),nn.BatchNorm2d(256),nn.ReLU(inplace=True),
+                         nn.Conv2d(256,256, 3, padding=2, bias=False,dilation=2),nn.BatchNorm2d(256),nn.ReLU(inplace=True))
+    model4=convert_to_separable_conv(model4)
+    models=[
+        model1,model2,model3,model4
+    ]
+    profiler(models)
+def test_fast():
     models=[
         Deeplab3P(name='mobilenetv2_100', num_classes=21,pretrained_backbone=False),
         Deeplab3(name='mobilenetv2_100', num_classes=21,pretrained_backbone=False),
         Deeplab3(name='mobilenetv2_100', num_classes=21,pretrained_backbone=False,aspp=False),
         Deeplab3P(name='resnet50d', num_classes=21,pretrained_backbone=False),
         Deeplab3(name='resnet50d', num_classes=21,pretrained_backbone=False),
-        Deeplab3(name='resnet50d', num_classes=21,pretrained_backbone=False,aspp=False)
+        Deeplab3(name='resnet50d', num_classes=21,pretrained_backbone=False,aspp=False),
+        Deeplab3P(name='resnet101d', num_classes=21,pretrained_backbone=False),
+        Deeplab3(name='resnet101d', num_classes=21,pretrained_backbone=False),
+        Deeplab3(name='resnet101d', num_classes=21,pretrained_backbone=False,aspp=False)
         ]
     profiler(models)
 
+def test_models():
+    names = [
+        'regnety_040',
+        'resnet50d',
+        'resnest50d',
+        'resnest50d_1s4x24d',
+        'resnest50d_4s2x40d'
+    ]
+    models = []
+    for name in names:
+        #models.append(Deeplab3P(name=name, num_classes=21,pretrained_backbone=False))
+        models.append(timm.create_model(name, features_only=True,
+                                        output_stride=16, out_indices=(4,)))
+    profiler(models)
 
-    #print(x.shape)
-    # names = [
-    #     'efficientnet_b1',
-    #     'regnety_006',
-    #     'mobilenetv2_100',
-    #     'mnasnet_a1',
-    #     'semnasnet_100',
-    #
-    #     'efficientnet_b4',
-    #     'regnety_040',
-    #     'resnet50d'
-    # ]
-    # models = []
-    # for name in names:
-    #     #models.append(Deeplab3P(name=name, num_classes=21,pretrained_backbone=False))
-    #     models.append(timm.create_model(name, features_only=True))
-    # profiler(models)
+if __name__=='__main__':
+    device = torch.device('cuda') if torch.cuda.is_available() else torch.device('cpu')
+    #resnet50d 77.1 mIOU
+    #regnetx_040 77.0 mIOU
+    #regnety_040 78.6 mIOU
+    #mobilenetv2_100 72.8 mIOU
+    #regnetx_080 77.3 mIOU
+    num_classes=21
+    print(timm.list_models())
+    model=timm.create_model('wide_resnet50_2')
+    print(model)
+    #test_models()
+

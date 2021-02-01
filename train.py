@@ -66,12 +66,12 @@ def criterion2(inputs, target, w):
 #     return mixed_x
 
 
-def evaluate(model, data_loader, device, num_classes,eval_steps):
+def evaluate(model, data_loader, device, num_classes,eval_steps,print_every=100):
     model.eval()
     confmat = ConfusionMatrix(num_classes)
     with torch.no_grad():
         for i,(image, target) in enumerate(data_loader):
-            if (i+1)%100==0:
+            if (i+1)%print_every==0:
                 print(i+1)
             if i==eval_steps:
                 break
@@ -178,6 +178,21 @@ def check():
     confmat = evaluate(model, data_loader_test, device=device,
                        num_classes=num_classes,eval_steps=eval_steps)
     print(confmat)
+def check2():
+    device = torch.device(
+        'cuda') if torch.cuda.is_available() else torch.device('cpu')
+    num_classes = 21
+    pretrained_path='checkpoints/voc_mobilenetv2'
+    #pretrained_path='checkpoints/voc_regnety40'
+    data_loader, data_loader_test=get_pascal_voc("pascal_voc_dataset",16,train_size=385,val_size=385)
+    eval_steps = 100
+    model=Deeplab3P(name='mobilenetv2_100',num_classes=num_classes,pretrained=pretrained_path,sc=False).to(
+        device)
+    print("evaluating")
+    confmat = evaluate(model, data_loader_test, device=device,
+                       num_classes=num_classes,eval_steps=eval_steps,print_every=5)
+    print(confmat)
 if __name__=='__main__':
     #check()
-    main()
+    #main()
+    check2()

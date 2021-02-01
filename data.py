@@ -97,11 +97,11 @@ def get_coco(root,batch_size=16):
     print("train size:", len(train_loader))
     print("val size:", len(val_loader))
     return train_loader, val_loader
-def get_pascal_voc(root,batch_size=16):
+def get_pascal_voc(root,batch_size=16,val_size=513,train_size=481):
     download=False
-    train = Voc12Segmentation(root, 'train_aug', build_transforms2(True,513,481),
+    train = Voc12Segmentation(root, 'train_aug', build_transforms2(True,val_size,train_size),
                                 download)
-    val = Voc12Segmentation(root, 'val', build_transforms2(False,513,481),
+    val = Voc12Segmentation(root, 'val', build_transforms2(False,val_size,train_size),
                                      download)
     train_loader = get_dataloader_train(train, batch_size)
     val_loader = get_dataloader_val(val)
