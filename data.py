@@ -74,6 +74,9 @@ def build_transforms2(is_train,size,crop_size):
             random_pad=is_train
         ))
         transforms.append(T.RandomHorizontalFlip(0.5))
+    transforms.append(T.ColorJitter(0.5,0.5,(0.5,2),0.05))
+    transforms.append(T.AddNoise(20))
+    # transforms.append(T.RandomRotation((-20,20),mean=pad_value))
     transforms.append(T.ToTensor())
     transforms.append(T.Normalize(
         mean,

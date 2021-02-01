@@ -169,14 +169,14 @@ def check():
     device = torch.device(
         'cuda') if torch.cuda.is_available() else torch.device('cpu')
     num_classes = 21
-    pretrained_path='/content/drive/My Drive/Colab Notebooks/voc_50d'
-    data_loader, data_loader_test=get_pascal_voc("pascal_voc_dataset",16)
-    eval_steps = len(data_loader_test)
-    model=Deeplab3P(name="resnet50d",num_classes=num_classes,pretrained=pretrained_path).to(
+    pretrained_path='/content/drive/My Drive/Colab Notebooks/SemanticSegmentation/checkpoints/voc_50d'
+    data_loader, data_loader_test=get_pascal_voc("pascal_voc_dataset",16,train_size=385,val_size=385)
+    eval_steps = 300
+    model=Deeplab3P(name="resnet50d",num_classes=num_classes,pretrained=pretrained_path,sc=True).to(
         device)
     print("evaluating")
     confmat = evaluate(model, data_loader_test, device=device,
-                       num_classes=num_classes,eval_steps=eval_steps)
+                       num_classes=num_classes,eval_steps=eval_steps,print_every=50)
     print(confmat)
 def check2():
     device = torch.device(
