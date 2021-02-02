@@ -7,52 +7,6 @@ from coco_utils import get_coco_dataset
 # mean=[0.485, 0.456, 0.406]
 # std=[0.229, 0.224, 0.225]
 
-# def build_transforms(is_train,crop_h,crop_w,size=None):
-#     if not size:
-#         size=min(crop_w,crop_h)
-#     mean = (0.485, 0.456, 0.406)
-#     std = (0.229, 0.224, 0.225)
-#     pad_value = tuple([int(v * 255) for v in mean])
-#     ignore_label = 255
-#     if is_train:
-#         # crop_h,crop_w=513,513
-#         min_scale = 0.5
-#         max_scale = 2.
-#         scale_step_size = 0.25
-#         flip_prob = 0.5
-#     else:
-#         # no data augmentation
-#         # crop_h, crop_w = 1025,2049
-#         min_scale = 1
-#         max_scale = 1
-#         scale_step_size = 0
-#         flip_prob = 0
-#     transforms = T.Compose(
-#         [
-#             T.RandomResize(min_scale*size,max_scale*size),
-#             # T.RandomScale(
-#             #     min_scale,
-#             #     max_scale,
-#             #     scale_step_size
-#             # ),
-#             T.RandomCrop(
-#                 crop_h,
-#                 crop_w,
-#                 pad_value,
-#                 ignore_label,
-#                 random_pad=is_train
-#             ),
-#             T.RandomHorizontalFlip(flip_prob),
-#             T.ToTensor(),
-#             T.Normalize(
-#                 mean,
-#                 std
-#             )
-#         ]
-#     )
-#
-#     return transforms
-
 def build_transforms2(is_train,size,crop_size):
     mean = (0.485, 0.456, 0.406)
     std = (0.229, 0.224, 0.225)
@@ -65,6 +19,9 @@ def build_transforms2(is_train,size,crop_size):
         min_scale=0.5
         max_scale=2
     transforms.append(T.RandomResize(int(min_scale*size),int(max_scale*size)))
+    transforms.append(T.ColorJitter(0.5,0.5,(0.5,2),0.05))
+    transforms.append(T.AddNoise(20))
+    transforms.append(T.RandomRotation((-20,20),mean=pad_value,ignore_value=0))
     if is_train:
         transforms.append(
         T.RandomCrop(
@@ -74,9 +31,6 @@ def build_transforms2(is_train,size,crop_size):
             random_pad=is_train
         ))
         transforms.append(T.RandomHorizontalFlip(0.5))
-    transforms.append(T.ColorJitter(0.5,0.5,(0.5,2),0.05))
-    transforms.append(T.AddNoise(20))
-    # transforms.append(T.RandomRotation((-20,20),mean=pad_value))
     transforms.append(T.ToTensor())
     transforms.append(T.Normalize(
         mean,

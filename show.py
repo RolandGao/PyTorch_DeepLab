@@ -98,15 +98,17 @@ def show(model,data_loader,device,show_mask,num_images=5,skip=4,images_per_line=
     plt.show()
 
 if __name__=="__main__":
-    num_images=9
-    images_per_line=3
-    skip=9
+    import torchvision
+    num_images=4
+    images_per_line=2
+    skip=0
     num_classes = 21
-    pretrained_path='checkpoints/voc_mobilenetv2'
+    pretrained_path='checkpoints/voc_resnet50d_noise'
     device = torch.device('cuda') if torch.cuda.is_available() else torch.device('cpu')
 
     _,data_loader=get_pascal_voc("pascal_voc_dataset",16,train_size=385,val_size=385)
-    model=Deeplab3P(name='mobilenetv2_100',num_classes=num_classes,pretrained=pretrained_path,sc=False).to(
+    #model=torchvision.models.segmentation.deeplabv3_resnet101(pretrained=True).to(device)
+    model=Deeplab3P(name='resnet50d',num_classes=num_classes,pretrained=pretrained_path,sc=True).to(
         device)
     #display(data_loader,show_mask,num_images=num_images,skip=skip,images_per_line=images_per_line)
     show(model,data_loader,device,show_mask,num_images=num_images,skip=skip,images_per_line=images_per_line)

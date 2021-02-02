@@ -79,15 +79,16 @@ class AddNoise:#additive gaussian noise
         return image, target
 
 class RandomRotation:
-    def __init__(self,degrees,mean):
+    def __init__(self,degrees,mean,ignore_value=255):
         self.degrees=degrees
         self.mean=mean
+        self.ignore_value=ignore_value
     def __call__(self, image, target):
         expand=True
         if random.random()<0.5:
             angle = random.uniform(*self.degrees)
             image=F.rotate(image, angle,fill=self.mean,expand=expand)
-            target=F.rotate(target,angle,fill=255,expand=expand)
+            target=F.rotate(target,angle,fill=self.ignore_value,expand=expand)
         return image,target
 
 

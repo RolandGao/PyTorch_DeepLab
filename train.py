@@ -135,20 +135,20 @@ def train(model, path, epochs,optimizer, data_loader, data_loader_test, lr_sched
 def main():
     num_classes = 21
     batch_size=16
-    epochs=30
-    resume = True
-    lr = 0.01
+    epochs=10
+    resume = False
+    lr = 0.004
     momentum = 0.9
     weight_decay = 1e-4
-    data_loader, data_loader_test=get_pascal_voc("pascal_voc_dataset",batch_size)
-    eval_steps=300
-    resume_path = '/content/voc_regnetx40'
-    save_path = '/content/drive/My Drive/voc_regnetx40'
+    data_loader, data_loader_test=get_pascal_voc("pascal_voc_dataset",batch_size,train_size=481,val_size=513)
+    eval_steps=1000
+    resume_path = '/content/drive/My Drive/Colab Notebooks/SemanticSegmentation/checkpoints/voc_50d'
+    save_path = '/content/drive/My Drive/Colab Notebooks/SemanticSegmentation/checkpoints/voc_resnet50d_noise2'
 
     device = torch.device('cuda') if torch.cuda.is_available() else torch.device('cpu')
     epoch_start=0
     max_iter=len(data_loader)*1.0
-    model=Deeplab3P(name='regnetx_040',num_classes=num_classes,pretrained_backbone=True,sc=False).to(device)
+    model=Deeplab3P(name='resnet50d',num_classes=num_classes,pretrained_backbone=True,sc=True,pretrained=resume_path).to(device)
     params_to_optimize=model.parameters()
     optimizer = torch.optim.SGD(params_to_optimize, lr=lr,
                                 momentum=momentum, weight_decay=weight_decay)
@@ -169,14 +169,15 @@ def check():
     device = torch.device(
         'cuda') if torch.cuda.is_available() else torch.device('cpu')
     num_classes = 21
-    pretrained_path='/content/drive/My Drive/Colab Notebooks/SemanticSegmentation/checkpoints/voc_50d'
-    data_loader, data_loader_test=get_pascal_voc("pascal_voc_dataset",16,train_size=385,val_size=385)
-    eval_steps = 300
+    pretrained_path='/content/drive/My Drive/Colab Notebooks/SemanticSegmentation/checkpoints/voc_resnet50d_noise2'
+    #voc_resnet50d_noise
+    data_loader, data_loader_test=get_pascal_voc("pascal_voc_dataset",16,train_size=481,val_size=513)
+    eval_steps = len(data_loader_test)
     model=Deeplab3P(name="resnet50d",num_classes=num_classes,pretrained=pretrained_path,sc=True).to(
         device)
     print("evaluating")
     confmat = evaluate(model, data_loader_test, device=device,
-                       num_classes=num_classes,eval_steps=eval_steps,print_every=50)
+                       num_classes=num_classes,eval_steps=eval_steps,print_every=100)
     print(confmat)
 def check2():
     device = torch.device(
@@ -193,6 +194,6 @@ def check2():
                        num_classes=num_classes,eval_steps=eval_steps,print_every=5)
     print(confmat)
 if __name__=='__main__':
-    #check()
+    check()
     #main()
-    check2()
+    #check()
