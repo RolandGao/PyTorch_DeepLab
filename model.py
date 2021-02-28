@@ -1,3 +1,5 @@
+from abc import ABC
+
 import torchvision
 from torch import nn
 import torch
@@ -20,7 +22,7 @@ class Deeplab3(nn.Module):
         super(Deeplab3,self).__init__()
         output_stride = 16
         self.backbone=timm.create_model(name, features_only=True,
-                                        output_stride=output_stride, out_indices=(4,),pretrained=pretrained_backbone)
+                                        output_stride=output_stride, out_indices=(4,),pretrained=pretrained_backbone and pretrained =="")
         channels=self.backbone.feature_info.channels()
         if aspp:
             self.head=DeepLabHead(channels[0], num_classes,output_stride)
@@ -41,14 +43,14 @@ class Deeplab3(nn.Module):
 
 class Deeplab3P(nn.Module):
     def __init__(self, name="mobilenetv2_100",num_classes=21,pretrained="",
-                 pretrained_backbone=True,sc=False):
+                 pretrained_backbone=True,sc=False,filter_multiplier=1.0):
         super(Deeplab3P,self).__init__()
         output_stride = 16
-        num_filters = 256
-        num_low_filters = 48
+        num_filters = int(256*filter_multiplier)
+        num_low_filters = int(48*filter_multiplier)
         try:
             self.backbone=timm.create_model(name, features_only=True,
-                          output_stride=output_stride, out_indices=(1, 4),pretrained=pretrained_backbone and pretrained !="")
+                          output_stride=output_stride, out_indices=(1, 4),pretrained=pretrained_backbone and pretrained =="")
         except RuntimeError:
             print("no model")
             print(timm.list_models())
@@ -89,9 +91,8 @@ class Deeplab3P(nn.Module):
         x = F.interpolate(x, size=input_shape, mode='bilinear',align_corners=False)
         return x
 
-def profile(model,device):
+def profile(model,device,num_iter=15):
     import time
-    num_iter=15
     model=model.to(device)
     model.eval()
     x=torch.randn(2,3,321,321).to(device)
@@ -100,14 +101,27 @@ def profile(model,device):
         y=model(x)
     t2=time.time()
     return (t2-t1)/num_iter
+def profile_warmup(model,device):
+    import time
+    num_iter=0
+    model=model.to(device)
+    model.eval()
+    x=torch.randn(2,3,321,321).to(device)
+    t1=time.time()
+    for _ in range(100):
+        num_iter+=1
+        y=model(x)
+        t2=time.time()
+        average_time=(t2-t1)/num_iter
+        print(num_iter,average_time)
 
 def profiler(models):
     device = torch.device('cuda') if torch.cuda.is_available() else torch.device('cpu')
     model = torchvision.models.resnet50()
     print("warming up")
-    profile(model, device)
+    profile(model, device,num_iter=15)
     for model in models:
-        seconds=profile(model,device)
+        seconds=profile(model,device,num_iter=30)
         print(round(seconds,3))
 
 def total_params(models):
@@ -174,24 +188,31 @@ def test_separable():
 def test_fast():
     models=[
         Deeplab3P(name='mobilenetv2_100', num_classes=21,pretrained_backbone=False),
+        Deeplab3P(name='mobilenetv2_100', num_classes=21,pretrained_backbone=False,filter_multiplier=0.5),
         Deeplab3(name='mobilenetv2_100', num_classes=21,pretrained_backbone=False),
         Deeplab3(name='mobilenetv2_100', num_classes=21,pretrained_backbone=False,aspp=False),
         Deeplab3P(name='resnet50d', num_classes=21,pretrained_backbone=False),
+        Deeplab3P(name='resnet50d', num_classes=21,pretrained_backbone=False,filter_multiplier=0.5),
         Deeplab3(name='resnet50d', num_classes=21,pretrained_backbone=False),
         Deeplab3(name='resnet50d', num_classes=21,pretrained_backbone=False,aspp=False),
-        Deeplab3P(name='resnet101d', num_classes=21,pretrained_backbone=False),
-        Deeplab3(name='resnet101d', num_classes=21,pretrained_backbone=False),
-        Deeplab3(name='resnet101d', num_classes=21,pretrained_backbone=False,aspp=False)
         ]
     profiler(models)
 
 def test_models():
-    names = [
-        'regnety_040',
+    # names = [
+    #     'mnasnet_a1',
+    #     'mobilenetv2_100',
+    #     'mobilenetv3_large_100',
+    #     'mobilenetv3_small_100',
+    #     'regnety_006',
+    #     'regnety_004'
+    # ]
+    names=[
         'resnet50d',
-        'resnest50d',
-        'resnest50d_1s4x24d',
-        'resnest50d_4s2x40d'
+        'regnety_040',
+        'ecaresnet50d',
+        'ecaresnet50',
+        'seresnet50tn'
     ]
     models = []
     for name in names:
@@ -207,9 +228,39 @@ if __name__=='__main__':
     #regnety_040 78.6 mIOU
     #mobilenetv2_100 72.8 mIOU
     #regnetx_080 77.3 mIOU
+
     num_classes=21
     print(timm.list_models())
-    model=timm.create_model('wide_resnet50_2')
-    print(model)
-    #test_models()
+    #experiment1()
+    #test_fast2()
 
+
+
+
+# 0.897
+# 0.752
+# 0.614
+# 0.371
+# 0.251
+
+# regnety4G
+# 0.764
+# 0.691
+# 0.572
+# 0.289
+# 0.131
+
+# regnet
+#     1.016
+# 0.946
+# 0.853
+# 0.49
+# 0.181
+
+
+# 'mobilenetv2_100'
+#     0.34
+# 0.178
+# 0.167
+# 0.168
+# 0.167
