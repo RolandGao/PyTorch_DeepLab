@@ -8,13 +8,13 @@ class AtrousSeparableConvolution(nn.Sequential):
                  stride=1, padding=0, dilation=1, bias=True,add_norm=True):
         modules=[]
         modules.append(nn.Conv2d(in_channels, in_channels, kernel_size=kernel_size,
-                      stride=stride, padding=padding, dilation=dilation,
-                      bias=(not add_norm), groups=in_channels))
+                                 stride=stride, padding=padding, dilation=dilation,
+                                 bias=(not add_norm), groups=in_channels))
         if add_norm:
             modules.append(nn.BatchNorm2d(in_channels))
             modules.append(nn.ReLU(inplace=True))
         modules.append(nn.Conv2d(in_channels, out_channels, kernel_size=1, stride=1,
-                      padding=0, bias=bias))
+                                 padding=0, bias=bias))
         super().__init__(*modules)
 
 
@@ -67,27 +67,27 @@ class ASPPPooling(nn.Sequential):
         return F.interpolate(x, size=size, mode='bilinear', align_corners=False)
 
 class ASPP(nn.Module):
-    def __init__(self, in_channels, atrous_rates, out_channels=256):
+    def __init__(self, in_channels, atrous_rates, out_channels=256,intermediate_channels=256,dropout=0.5):
         super(ASPP, self).__init__()
         modules = []
         modules.append(nn.Sequential(
-            nn.Conv2d(in_channels, out_channels, 1, bias=False),
-            nn.BatchNorm2d(out_channels),
+            nn.Conv2d(in_channels, intermediate_channels, 1, bias=False),
+            nn.BatchNorm2d(intermediate_channels),
             nn.ReLU(inplace=True)))
 
         rates = tuple(atrous_rates)
         for rate in rates:
-            modules.append(ASPPConv(in_channels, out_channels, rate))
+            modules.append(ASPPConv(in_channels, intermediate_channels, rate))
 
-        modules.append(ASPPPooling(in_channels, out_channels))
+        modules.append(ASPPPooling(in_channels, intermediate_channels))
 
         self.convs = nn.ModuleList(modules)
-        num_branches=2+len(rates)
+        num_branches=len(self.convs)
         self.project = nn.Sequential(
-            nn.Conv2d(num_branches * out_channels, out_channels, 1, bias=False),
+            nn.Conv2d(num_branches * intermediate_channels, out_channels, 1, bias=False),
             nn.BatchNorm2d(out_channels),
             nn.ReLU(inplace=True),
-            nn.Dropout(0.5))
+            nn.Dropout(dropout))
 
     def forward(self, x):
         res = []
@@ -95,7 +95,6 @@ class ASPP(nn.Module):
             res.append(conv(x))
         res = torch.cat(res, dim=1)
         return self.project(res)
-
 
 
 def convert_to_separable_conv(module,deep_copy=True):
@@ -118,9 +117,9 @@ def convert_to_separable_conv(module,deep_copy=True):
 if __name__=='__main__':
     module=nn.Conv2d(5,5,1,bias=False)
     print(module.in_channels,
-            module.out_channels,
-            module.kernel_size,
-            module.stride,
-            module.padding,
-            module.dilation,
-            module.bias is not None)
+          module.out_channels,
+          module.kernel_size,
+          module.stride,
+          module.padding,
+          module.dilation,
+          module.bias is not None)

@@ -1,11 +1,9 @@
-from abc import ABC
-
 import torchvision
 from torch import nn
 import torch
 from torch.nn import functional as F
 from math import log2
-from Deeplabv3 import DeepLabHead,DeepLabHeadNoASSP,get_ASSP,convert_to_separable_conv
+from Deeplabv3 import DeepLabHead,DeepLabHeadNoASSP,get_ASSP,convert_to_separable_conv, ASPP
 import timm
 
 def replace(output_stride=8):
@@ -50,7 +48,7 @@ class Deeplab3P(nn.Module):
         num_low_filters = int(48*filter_multiplier)
         try:
             self.backbone=timm.create_model(name, features_only=True,
-                          output_stride=output_stride, out_indices=(1, 4),pretrained=pretrained_backbone and pretrained =="")
+                                            output_stride=output_stride, out_indices=(1, 4),pretrained=pretrained_backbone and pretrained =="")
         except RuntimeError:
             print("no model")
             print(timm.list_models())
@@ -58,17 +56,17 @@ class Deeplab3P(nn.Module):
         channels=self.backbone.feature_info.channels()
         self.head16=get_ASSP(channels[1], output_stride,num_filters)
         self.head4=torch.nn.Sequential(
-        nn.Conv2d(channels[0], num_low_filters, 1, bias=False),
-        nn.BatchNorm2d(num_low_filters),
-        nn.ReLU(inplace=True))
+            nn.Conv2d(channels[0], num_low_filters, 1, bias=False),
+            nn.BatchNorm2d(num_low_filters),
+            nn.ReLU(inplace=True))
         self.decoder= nn.Sequential(
-        nn.Conv2d(num_low_filters+num_filters, num_filters, 3, padding=1, bias=False),
-        nn.BatchNorm2d(num_filters),
-        nn.ReLU(inplace=True),
-        nn.Conv2d(num_filters, num_filters, 3, padding=1, bias=False),
-        nn.BatchNorm2d(num_filters),
-        nn.ReLU(inplace=True),
-        nn.Conv2d(num_filters, num_classes, 1)
+            nn.Conv2d(num_low_filters+num_filters, num_filters, 3, padding=1, bias=False),
+            nn.BatchNorm2d(num_filters),
+            nn.ReLU(inplace=True),
+            nn.Conv2d(num_filters, num_filters, 3, padding=1, bias=False),
+            nn.BatchNorm2d(num_filters),
+            nn.ReLU(inplace=True),
+            nn.Conv2d(num_filters, num_classes, 1)
         )
         if sc:
             self.decoder = convert_to_separable_conv(self.decoder)
@@ -150,7 +148,7 @@ def memory_test_helper(model,device):
     model.train()
     N=16
     x=torch.randn(N, 3, 481, 481).to(device)
-    target=torch.randint(0,19,(N, 481, 481)).to(device)
+    target=torch.randint(0,21,(N, 481, 481)).to(device)
     t1=memory_used(device)
     out=model(x)
     loss=nn.functional.cross_entropy(out,target,ignore_index=255)
@@ -195,7 +193,7 @@ def test_fast():
         Deeplab3P(name='resnet50d', num_classes=21,pretrained_backbone=False,filter_multiplier=0.5),
         Deeplab3(name='resnet50d', num_classes=21,pretrained_backbone=False),
         Deeplab3(name='resnet50d', num_classes=21,pretrained_backbone=False,aspp=False),
-        ]
+    ]
     profiler(models)
 
 def test_models():
