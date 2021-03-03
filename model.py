@@ -186,11 +186,11 @@ def test_separable():
 def test_fast():
     models=[
         Deeplab3P(name='mobilenetv2_100', num_classes=21,pretrained_backbone=False),
-        Deeplab3P(name='mobilenetv2_100', num_classes=21,pretrained_backbone=False,filter_multiplier=0.5),
+        #Deeplab3P(name='mobilenetv2_100', num_classes=21,pretrained_backbone=False,filter_multiplier=0.5),
         Deeplab3(name='mobilenetv2_100', num_classes=21,pretrained_backbone=False),
         Deeplab3(name='mobilenetv2_100', num_classes=21,pretrained_backbone=False,aspp=False),
         Deeplab3P(name='resnet50d', num_classes=21,pretrained_backbone=False),
-        Deeplab3P(name='resnet50d', num_classes=21,pretrained_backbone=False,filter_multiplier=0.5),
+        #Deeplab3P(name='resnet50d', num_classes=21,pretrained_backbone=False,filter_multiplier=0.5),
         Deeplab3(name='resnet50d', num_classes=21,pretrained_backbone=False),
         Deeplab3(name='resnet50d', num_classes=21,pretrained_backbone=False,aspp=False),
     ]
@@ -230,7 +230,7 @@ if __name__=='__main__':
     num_classes=21
     print(timm.list_models())
     #experiment1()
-    #test_fast2()
+    test_fast()
 
 
 

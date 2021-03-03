@@ -8,7 +8,7 @@
 from model import *
 
 class XBlock(nn.Module): # From figure 4
-    def __init__(self, in_channels, out_channels, bottleneck_ratio, group_width, stride, se_ratio=None):
+    def __init__(self, in_channels, out_channels, bottleneck_ratio, group_width, stride):
         super(XBlock, self).__init__()
         inter_channels = out_channels // bottleneck_ratio
         groups = inter_channels // group_width
@@ -16,24 +16,13 @@ class XBlock(nn.Module): # From figure 4
         self.conv_block_1 = nn.Sequential(
             nn.Conv2d(in_channels, inter_channels, kernel_size=1, bias=False),
             nn.BatchNorm2d(inter_channels),
-            nn.ReLU()
+            nn.ReLU(inplace=True)
         )
         self.conv_block_2 = nn.Sequential(
             nn.Conv2d(inter_channels, inter_channels, kernel_size=3, stride=stride, groups=groups, padding=1, bias=False),
             nn.BatchNorm2d(inter_channels),
-            nn.ReLU()
+            nn.ReLU(inplace=True)
         )
-        if se_ratio is not None:
-            se_channels = in_channels // se_ratio
-            self.se = nn.Sequential(
-                nn.AdaptiveAvgPool2d(output_size=1),
-                nn.Conv2d(inter_channels, se_channels, kernel_size=1, bias=True),
-                nn.ReLU(),
-                nn.Conv2d(se_channels, inter_channels, kernel_size=1, bias=True),
-                nn.Sigmoid(),
-            )
-        else:
-            self.se = None
 
         self.conv_block_3 = nn.Sequential(
             nn.Conv2d(inter_channels, out_channels, kernel_size=1, bias=False),
@@ -46,7 +35,7 @@ class XBlock(nn.Module): # From figure 4
             )
         else:
             self.shortcut = None
-        self.rl = nn.ReLU()
+        self.rl = nn.ReLU(inplace=True)
 
     def forward(self, x):
         shortcut=self.shortcut(x) if self.shortcut else x
@@ -64,12 +53,12 @@ class VBlock(nn.Module):
         self.conv_block_1 = nn.Sequential(
             nn.Conv2d(in_channels, out_channels, kernel_size=3, stride=stride, padding=1, bias=False),
             nn.BatchNorm2d(out_channels),
-            nn.ReLU()
+            nn.ReLU(inplace=True)
         )
         self.conv_block_2 = nn.Sequential(
             nn.Conv2d(out_channels, out_channels, kernel_size=3, padding=1, bias=False),
             nn.BatchNorm2d(out_channels),
-            nn.ReLU()
+            nn.ReLU(inplace=True)
         )
         if stride != 1 or in_channels != out_channels:
             self.shortcut = nn.Sequential(
@@ -78,7 +67,7 @@ class VBlock(nn.Module):
             )
         else:
             self.shortcut = None
-        self.rl = nn.ReLU()
+        self.rl = nn.ReLU(inplace=True)
 
     def forward(self, x):
         shortcut=self.shortcut(x) if self.shortcut else x
@@ -91,7 +80,6 @@ class LightASPP(nn.Module):
     def __init__(self, in_channels, out_channels, rates=(1,6,12,18)):
         super(LightASPP, self).__init__()
         modules = []
-
         for rate in rates:
             modules.append(nn.Sequential(
                 nn.Conv2d(in_channels, out_channels, 3, padding=rate, dilation=rate, bias=False),
@@ -113,7 +101,7 @@ class ASPP2(nn.Module):
         self.conv1 = nn.Sequential(
             nn.Conv2d(in_channels, intermediate_channels, kernel_size=1, bias=False),
             nn.BatchNorm2d(intermediate_channels),
-            nn.ReLU()
+            nn.ReLU(inplace=True)
         )
         conv2_out_channels=intermediate_channels//len(rates)
         self.conv2=LightASPP(intermediate_channels,conv2_out_channels,rates)
@@ -128,7 +116,7 @@ class ASPP2(nn.Module):
                 nn.BatchNorm2d(out_channels)
             )
         self.rl = nn.Sequential(
-            nn.ReLU(),
+            nn.ReLU(inplace=True),
             nn.Dropout(dropout)
         )
 
@@ -245,10 +233,57 @@ class ExperimentalModel1(nn.Module):
         x = F.interpolate(x, size=input_shape, mode='bilinear',align_corners=False)
         return x
 
+class ExperimentalModel2(nn.Module):
+    def __init__(self, name="mobilenetv2_100",num_classes=21,pretrained="",
+                 pretrained_backbone=True,version=1):
+        super(ExperimentalModel2,self).__init__()
+        output_stride = 16
+        #m=16
+        #decoder_filters16=nearest_multiple(256*filter_multiplier,m)
+        try:
+            self.backbone=timm.create_model(name, features_only=True,
+                                            output_stride=output_stride, out_indices=(4,),pretrained=pretrained_backbone and pretrained =="")
+        except RuntimeError:
+            print("no model")
+            print(timm.list_models())
+            raise RuntimeError()
+        channels=self.backbone.feature_info.channels()
+
+        if version==1:
+            self.decoder16=ASPP2(channels[0],512,256,(1,6,12,18),dropout=0.5)
+            self.classifier=nn.Conv2d(256, num_classes, 1)
+        elif version==2:
+            self.decoder16=ASPP2(channels[0],512,512,(1,6,12,18),dropout=0.5)
+            self.classifier=nn.Conv2d(512, num_classes, 1)
+        elif version==3:
+            self.decoder16=ASPP2(channels[0],1024,256,(1,6,12,18),dropout=0.5)
+            self.classifier=nn.Conv2d(256, num_classes, 1)
+        elif version==4:
+            self.decoder16=get_ASSP(channels[0], output_stride,256)
+            self.classifier=nn.Conv2d(256, num_classes, 1)
+        else:
+            raise NotImplementedError()
+        if pretrained != "":
+            dic = torch.load(pretrained, map_location='cpu')
+            if type(dic)==dict:
+                self.load_state_dict(dic['model'])
+            else:
+                self.load_state_dict(dic)
+
+    def forward(self, x):
+        input_shape = x.shape[-2:]
+        features = self.backbone(x)
+        x=self.decoder16(features[0])
+        x=self.classifier(x)
+        x = F.interpolate(x, size=input_shape, mode='bilinear',align_corners=False)
+        return x
+
 def test_fast2():
     name='resnet50d'
     models=[
         Deeplab3P(name=name, num_classes=21,pretrained_backbone=False),
+        ExperimentalModel1(name=name,num_classes=21,pretrained="",
+                           pretrained_backbone=False,filter_multiplier=1.0,version=1),
         ExperimentalModel1(name=name,num_classes=21,pretrained="",
                            pretrained_backbone=False,filter_multiplier=1.0,version=2),
         ExperimentalModel1(name=name,num_classes=21,pretrained="",
@@ -271,25 +306,23 @@ def experiment2():
     profile_warmup(model, device)
 
 def memory_experiment():
-    name='resnet50d'
+    #name='resnet50d'
+    name="regnety_040"
     models=[
-        # ExperimentalModel1(name=name,num_classes=21,pretrained="",
-        #                    pretrained_backbone=False,filter_multiplier=1.0,version=1),
-        # ExperimentalModel1(name=name,num_classes=21,pretrained="",
-        #                    pretrained_backbone=False,filter_multiplier=1.0,version=2),
-        # ExperimentalModel1(name=name,num_classes=21,pretrained="",
-        #                    pretrained_backbone=False,filter_multiplier=1.0,version=3),
+        # ExperimentalModel2(name=name,num_classes=21,pretrained="",pretrained_backbone=False,version=1),
+        # ExperimentalModel2(name=name,num_classes=21,pretrained="",pretrained_backbone=False,version=2),
+        # ExperimentalModel2(name=name,num_classes=21,pretrained="",pretrained_backbone=False,version=3),
+        # ExperimentalModel2(name=name,num_classes=21,pretrained="",pretrained_backbone=False,version=4),
         ExperimentalModel1(name=name,num_classes=21,pretrained="",
-                           pretrained_backbone=False,filter_multiplier=1,version=1),
+                           pretrained_backbone=False,filter_multiplier=1.0,version=1),
         ExperimentalModel1(name=name,num_classes=21,pretrained="",
-                           pretrained_backbone=False,filter_multiplier=1,version=3),
+                           pretrained_backbone=False,filter_multiplier=1.0,version=2),
         ExperimentalModel1(name=name,num_classes=21,pretrained="",
-                           pretrained_backbone=False,filter_multiplier=0.75,version=3),
+                           pretrained_backbone=False,filter_multiplier=1.0,version=3),
         ExperimentalModel1(name=name,num_classes=21,pretrained="",
-                           pretrained_backbone=False,filter_multiplier=0.5,version=3),
-        Deeplab3(name=name, num_classes=21,pretrained_backbone=False),
-        Deeplab3(name=name, num_classes=21,pretrained_backbone=False,aspp=False),
-        # Deeplab3P(name=name, num_classes=21,pretrained_backbone=False),
+                           pretrained_backbone=False,filter_multiplier=1.0,version=5),
+        #Deeplab3(name=name, num_classes=21,pretrained_backbone=False,aspp=False),
+        Deeplab3P(name=name, num_classes=21,pretrained_backbone=False),
     ]
     memory_test(models,device)
 
@@ -297,12 +330,12 @@ if __name__=='__main__':
     device = torch.device('cuda') if torch.cuda.is_available() else torch.device('cpu')
     num_classes=21
     #experiment1()
-    test_fast2()
-    #memory_experiment()
+    #test_fast2()
+    memory_experiment()
 
-    #print(timm.list_models())
-    #model=timm.create_model("regnety_040")
-    #print(model)
+    # print(timm.list_models())
+    # model=timm.create_model("regnety_040")
+    # print(model)
 
 
 # def gradient():
