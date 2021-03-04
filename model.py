@@ -139,10 +139,10 @@ def profiler2(models):
 
 def memory_used(device):
     x=torch.cuda.memory_allocated(device)
-    return round(x/1024/1024,4)
+    return round(x/1024/1024)
 def max_memory_used(device):
     x=torch.cuda.max_memory_allocated(device)
-    return round(x/1024/1024,4)
+    return round(x/1024/1024)
 def memory_test_helper(model,device):
     model=model.to(device)
     model.train()
@@ -229,8 +229,14 @@ if __name__=='__main__':
 
     num_classes=21
     print(timm.list_models())
+    model=timm.create_model("resnet50d", features_only=True,
+                            output_stride=16, out_indices=(4,))
+    print(model)
+    model=timm.create_model("regnetx_040", features_only=True,
+                            output_stride=16, out_indices=(4,))
+    print(model)
     #experiment1()
-    test_fast()
+    #test_fast()
 
 
 

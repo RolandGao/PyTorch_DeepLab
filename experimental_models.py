@@ -41,8 +41,6 @@ class XBlock(nn.Module): # From figure 4
         shortcut=self.shortcut(x) if self.shortcut else x
         x = self.conv_block_1(x)
         x = self.conv_block_2(x)
-        if self.se is not None:
-            x = x * self.se(x)
         x = self.conv_block_3(x)
         x = self.rl(x + shortcut)
         return x
@@ -58,7 +56,6 @@ class VBlock(nn.Module):
         self.conv_block_2 = nn.Sequential(
             nn.Conv2d(out_channels, out_channels, kernel_size=3, padding=1, bias=False),
             nn.BatchNorm2d(out_channels),
-            nn.ReLU(inplace=True)
         )
         if stride != 1 or in_channels != out_channels:
             self.shortcut = nn.Sequential(
@@ -96,18 +93,17 @@ class LightASPP(nn.Module):
         return res
 
 class ASPP2(nn.Module):
-    def __init__(self, in_channels, intermediate_channels=512, out_channels=256,rates=(1,6,12,18),dropout=0.5):
+    def __init__(self, in_channels, conv1_channels,conv2_channels, out_channels=256,rates=(1,6,12,18),dropout=0.5):
         super(ASPP2, self).__init__()
         self.conv1 = nn.Sequential(
-            nn.Conv2d(in_channels, intermediate_channels, kernel_size=1, bias=False),
-            nn.BatchNorm2d(intermediate_channels),
+            nn.Conv2d(in_channels, conv1_channels, kernel_size=1, bias=False),
+            nn.BatchNorm2d(conv1_channels),
             nn.ReLU(inplace=True)
         )
-        conv2_out_channels=intermediate_channels//len(rates)
-        self.conv2=LightASPP(intermediate_channels,conv2_out_channels,rates)
+        self.conv2=LightASPP(conv1_channels,conv2_channels,rates)
 
         self.conv3 = nn.Sequential(
-            nn.Conv2d(conv2_out_channels * len(rates), out_channels, 1, bias=False),
+            nn.Conv2d(conv2_channels * len(rates), out_channels, 1, bias=False),
             nn.BatchNorm2d(out_channels),
         )
         if in_channels != out_channels:
@@ -153,11 +149,11 @@ class Decoder(nn.Module):
                 nn.ReLU(inplace=True),
             )
         elif version==3:
-            self.decoder=XBlock(in_channels,out_channels,1,group_width,1,None)
+            self.decoder=XBlock(in_channels,out_channels,1,group_width,1)
         elif version==4:
             self.decoder= nn.Sequential(
-                XBlock(in_channels,out_channels,1,group_width,1,None),
-                XBlock(out_channels,out_channels,1,group_width,1,None)
+                XBlock(in_channels,out_channels,1,group_width,1),
+                XBlock(out_channels,out_channels,1,group_width,1)
             )
         elif version==5:
             self.decoder=VBlock(in_channels,out_channels,1)
@@ -198,8 +194,8 @@ class ExperimentalModel1(nn.Module):
             nn.ReLU(inplace=True))
         if self.head16 is None:
             head_filters16=channels[2]
-        #self.decoder16=ASPP(head_filters16, [6,12,18],decoder_filters16,128,0.5)
-        self.decoder16=ASPP2(head_filters16,512,decoder_filters16,(1,6,12,18),dropout=0.5)
+        #self.decoder16=get_ASSP(head_filters16, output_stride,decoder_filters16)
+        self.decoder16=ASPP2(head_filters16,512,128,decoder_filters16,(1,6,12,18),dropout=0.5)
         self.decoder8=Decoder(decoder_filters16+head_filters8,decoder_filters8,version=version)
         self.decoder4=Decoder(decoder_filters8+head_filters4,decoder_filters4,version=version)
         self.classifier=nn.Conv2d(decoder_filters4, num_classes, 1)
@@ -250,13 +246,13 @@ class ExperimentalModel2(nn.Module):
         channels=self.backbone.feature_info.channels()
 
         if version==1:
-            self.decoder16=ASPP2(channels[0],512,256,(1,6,12,18),dropout=0.5)
+            self.decoder16=ASPP2(channels[0],512,128,256,(1,6,12,18),dropout=0.5)
             self.classifier=nn.Conv2d(256, num_classes, 1)
         elif version==2:
-            self.decoder16=ASPP2(channels[0],512,512,(1,6,12,18),dropout=0.5)
+            self.decoder16=ASPP2(channels[0],512,128,512,(1,6,12,18),dropout=0.5)
             self.classifier=nn.Conv2d(512, num_classes, 1)
         elif version==3:
-            self.decoder16=ASPP2(channels[0],1024,256,(1,6,12,18),dropout=0.5)
+            self.decoder16=ASPP2(channels[0],512,256,256,(1,6,12,18),dropout=0.5)
             self.classifier=nn.Conv2d(256, num_classes, 1)
         elif version==4:
             self.decoder16=get_ASSP(channels[0], output_stride,256)
@@ -295,8 +291,8 @@ def test_fast2():
     profiler(models)
 
 def experiment1():
-    model=ExperimentalModel1(name="mobilenetv2_100",num_classes=21,pretrained="",
-                             pretrained_backbone=False,filter_multiplier=1.0)
+    model=ExperimentalModel1(name='resnet50d',num_classes=21,pretrained="",
+                             pretrained_backbone=False,filter_multiplier=1.0,version=3)
     x=torch.randn((2,3,128,128))
     y=model(x)
     print(y.shape)
@@ -307,12 +303,11 @@ def experiment2():
 
 def memory_experiment():
     #name='resnet50d'
-    name="regnety_040"
+    #name="regnety_040"
+    #name="mobilenetv2_100"
+    #name="resnet101d"
+    name="regnetx_064"
     models=[
-        # ExperimentalModel2(name=name,num_classes=21,pretrained="",pretrained_backbone=False,version=1),
-        # ExperimentalModel2(name=name,num_classes=21,pretrained="",pretrained_backbone=False,version=2),
-        # ExperimentalModel2(name=name,num_classes=21,pretrained="",pretrained_backbone=False,version=3),
-        # ExperimentalModel2(name=name,num_classes=21,pretrained="",pretrained_backbone=False,version=4),
         ExperimentalModel1(name=name,num_classes=21,pretrained="",
                            pretrained_backbone=False,filter_multiplier=1.0,version=1),
         ExperimentalModel1(name=name,num_classes=21,pretrained="",
@@ -321,8 +316,21 @@ def memory_experiment():
                            pretrained_backbone=False,filter_multiplier=1.0,version=3),
         ExperimentalModel1(name=name,num_classes=21,pretrained="",
                            pretrained_backbone=False,filter_multiplier=1.0,version=5),
-        #Deeplab3(name=name, num_classes=21,pretrained_backbone=False,aspp=False),
         Deeplab3P(name=name, num_classes=21,pretrained_backbone=False),
+    ]
+    memory_test(models,device)
+
+def memory_experiment2():
+    #name='resnet50d'
+    #name="regnety_040"
+    #name="mobilenetv2_100"
+    name="regnetx_064"
+    models=[
+        ExperimentalModel2(name=name,num_classes=21,pretrained="",pretrained_backbone=False,version=1),
+        ExperimentalModel2(name=name,num_classes=21,pretrained="",pretrained_backbone=False,version=2),
+        ExperimentalModel2(name=name,num_classes=21,pretrained="",pretrained_backbone=False,version=3),
+        ExperimentalModel2(name=name,num_classes=21,pretrained="",pretrained_backbone=False,version=4),
+        Deeplab3(name=name, num_classes=21,pretrained_backbone=False,aspp=False),
     ]
     memory_test(models,device)
 

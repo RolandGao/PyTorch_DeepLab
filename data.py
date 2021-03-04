@@ -38,17 +38,17 @@ def build_transforms2(is_train,size,crop_size):
     ))
     return T.Compose(transforms)
 
-def get_cityscapes(root,batch_size=16):
-    train=Cityscapes(root,split="train",target_type="semantic",transforms=build_transforms2(True,513,481))
-    val=Cityscapes(root,split="val",target_type="semantic",transforms=build_transforms2(False,513,481))
+def get_cityscapes(root,batch_size=16,val_size=513,train_size=481):
+    train=Cityscapes(root,split="train",target_type="semantic",transforms=build_transforms2(True,val_size,train_size))
+    val=Cityscapes(root,split="val",target_type="semantic",transforms=build_transforms2(False,val_size,train_size))
     train_loader = get_dataloader_train(train, batch_size)
     val_loader = get_dataloader_val(val)
     print("train size:", len(train_loader))
     print("val size:", len(val_loader))
     return train_loader,val_loader
-def get_coco(root,batch_size=16):
-    train=get_coco_dataset(root, "train", build_transforms2(True,513,481))
-    val=get_coco_dataset(root, "val", build_transforms2(False,513,481))
+def get_coco(root,batch_size=16,val_size=513,train_size=481):
+    train=get_coco_dataset(root, "train", build_transforms2(True,val_size,train_size))
+    val=get_coco_dataset(root, "val", build_transforms2(False,val_size,train_size))
     train_loader = get_dataloader_train(train, batch_size)
     val_loader = get_dataloader_val(val)
     print("train size:", len(train_loader))
