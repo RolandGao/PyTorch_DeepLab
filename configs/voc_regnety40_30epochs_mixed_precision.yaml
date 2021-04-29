@@ -15,7 +15,7 @@ class_weight: null
 #TRAIN:
 batch_size: 16
 train_size: 481
-mixed_precision: False
+mixed_precision: True
 
 #TEST:
 eval_steps: 1000
