@@ -339,11 +339,11 @@ if __name__=='__main__':
     num_classes=21
     #experiment1()
     #test_fast2()
-    memory_experiment()
+    #memory_experiment()
 
-    # print(timm.list_models())
-    # model=timm.create_model("regnety_040")
-    # print(model)
+    print(timm.list_models())
+    model=timm.create_model('cspresnet50d',pretrained=True)
+    print(model)
 
 
 # def gradient():

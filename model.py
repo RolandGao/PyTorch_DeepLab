@@ -197,20 +197,12 @@ def test_fast():
     profiler(models)
 
 def test_models():
-    # names = [
-    #     'mnasnet_a1',
-    #     'mobilenetv2_100',
-    #     'mobilenetv3_large_100',
-    #     'mobilenetv3_small_100',
-    #     'regnety_006',
-    #     'regnety_004'
-    # ]
     names=[
         'resnet50d',
-        'regnety_040',
-        'ecaresnet50d',
-        'ecaresnet50',
-        'seresnet50tn'
+        'nf_regnet_b0',
+        'gernet_m',
+        'efficientnet_lite3',
+        'efficientnet_lite2'
     ]
     models = []
     for name in names:
@@ -229,14 +221,11 @@ if __name__=='__main__':
 
     num_classes=21
     print(timm.list_models())
-    model=timm.create_model("resnet50d", features_only=True,
-                            output_stride=16, out_indices=(4,))
-    print(model)
-    model=timm.create_model("regnetx_040", features_only=True,
-                            output_stride=16, out_indices=(4,))
+    model=timm.create_model('resnest50d')
     print(model)
     #experiment1()
     #test_fast()
+    #test_models()
 
 
 

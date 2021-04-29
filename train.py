@@ -1,13 +1,14 @@
 from model import Deeplab3P
-from data import get_cityscapes,get_pascal_voc
+from data import get_cityscapes,get_pascal_voc,get_coco
 import datetime
 import time
 
 import torch
 import torch.utils.data
 from torch import nn
-import numpy as np
 import torch.nn.functional
+import yaml
+import torch.cuda.amp as amp
 
 class ConfusionMatrix(object):
     def __init__(self, num_classes):
@@ -46,27 +47,12 @@ class ConfusionMatrix(object):
 
 
 def criterion2(inputs, target, w):
-    return nn.functional.cross_entropy(inputs,target,ignore_index=255)
-# def criterion(inputs, target, w):
-#     losses = {}
-#     for name, x in inputs.items():
-#         losses[name] = nn.functional.cross_entropy(x, target, weight=w,ignore_index=255)
-#
-#     if len(losses) == 1:
-#         return losses['out']
-#
-#     return losses['out'] + 0.5 * losses['aux']
+    return nn.functional.cross_entropy(inputs,target,ignore_index=255,weight=w)
 
-# def mixup(x,device):
-#     assert len(x.size())==4
-#     batch_size = x.size()[0]
-#     index = torch.randperm(batch_size).to(device)
-#     lam=0.9
-#     mixed_x = lam * x + (1 - lam) * x[index, :]
-#     return mixed_x
+def get_loss_fun(weight):
+    return nn.CrossEntropyLoss(weight=weight,ignore_index=255)
 
-
-def evaluate(model, data_loader, device, num_classes,eval_steps,print_every=100):
+def evaluate(model, data_loader, device, num_classes,eval_steps,mixed_precision,print_every=100):
     model.eval()
     confmat = ConfusionMatrix(num_classes)
     with torch.no_grad():
@@ -76,94 +62,178 @@ def evaluate(model, data_loader, device, num_classes,eval_steps,print_every=100)
             if i==eval_steps:
                 break
             image, target = image.to(device), target.to(device)
-            output = model(image)
+            with amp.autocast(enabled=mixed_precision):
+                output = model(image)
             confmat.update(target.flatten(), output.argmax(1).flatten())
 
     return confmat
 
-def train_one_epoch(model, criterion, optimizer, data_loader, lr_scheduler, device, epoch, print_freq, max_iter,w):
+def train_one_epoch(model, loss_fun, optimizer, loader, lr_scheduler, device, print_freq,mixed_precision,scaler):
     model.train()
-    #np.random.seed()
-    print(f"epoch: {epoch}")
+    scaler=amp.GradScaler(enabled=mixed_precision)
     losses=0
-    for t, x in enumerate(data_loader):
+    for t, x in enumerate(loader):
         image, target=x
         image, target = image.to(device), target.to(device)
-        #image=mixup(image,device)
-        output = model(image)
-        loss = criterion(output, target, w)
+        with amp.autocast(enabled=mixed_precision):
+            output = model(image)
+            loss = loss_fun(output, target)
         optimizer.zero_grad()
-        loss.backward()
-        optimizer.step()
+        scaler.scale(loss).backward()
+        scaler.step(optimizer)
+        scaler.update()
         lr_scheduler.step()
         losses+=loss.item()
         if t % print_freq==0:
             print(t,loss.item())
-        if t == max_iter-1:
-            break
-    num_iter=min(max_iter,len(data_loader))
+    num_iter=len(loader)
     print(losses/num_iter)
 
-def save(model,optimizer,scheduler,epoch,path):
+def save(model,optimizer,scheduler,epoch,path,best_mIU,scaler):
     dic={
         'model': model.state_dict(),
         'optimizer': optimizer.state_dict(),
         'lr_scheduler': scheduler.state_dict(),
-        'epoch': epoch
+        'scaler':scaler.state_dict(),
+        'epoch': epoch,
+        'best_mIU':best_mIU
     }
     torch.save(dic,path)
 
-def train(model, path, epochs,optimizer, data_loader, data_loader_test, lr_scheduler, device,num_classes, max_iter,w,eval_steps):
+def train(model, save_best_path,save_latest_path, epochs,optimizer, data_loader, data_loader_test, lr_scheduler, device,num_classes,save_best_on_epochs,loss_fun,mixed_precision,scaler,best_mIU):
     start_time = time.time()
-    best_mIU=0
     for epoch in epochs:
-        train_one_epoch(model, criterion2, optimizer, data_loader, lr_scheduler,
-                        device, epoch, print_freq=50, max_iter=max_iter,w=w)
-        confmat = evaluate(model, data_loader_test, device=device,
-                           num_classes=num_classes,eval_steps=eval_steps)
-        print(confmat)
-        acc_global, acc, iu = confmat.compute()
-        mIU=iu.mean().item() * 100
-        if mIU > best_mIU:
-            best_mIU=mIU
-            save(model, optimizer, lr_scheduler, epoch, path)
+        print(f"epoch: {epoch}")
+        train_one_epoch(model, loss_fun, optimizer, data_loader, lr_scheduler,
+                        device, print_freq=50,mixed_precision=mixed_precision,scaler=scaler)
+        if epoch in save_best_on_epochs:
+            confmat = evaluate(model, data_loader_test, device=device,
+                               num_classes=num_classes,eval_steps=len(data_loader_test),mixed_precision=mixed_precision,print_every=100)
+            print(confmat)
+            acc_global, acc, iu = confmat.compute()
+            mIU=iu.mean().item() * 100
+            if mIU > best_mIU:
+                best_mIU=mIU
+                save(model, optimizer, lr_scheduler, epoch, save_best_path,best_mIU,scaler)
+        if save_latest_path != "":
+            save(model, optimizer, lr_scheduler, epoch, save_latest_path,best_mIU,scaler)
 
     total_time = time.time() - start_time
     total_time_str = str(datetime.timedelta(seconds=int(total_time)))
     print('Training time {}'.format(total_time_str))
 
-def main():
-    num_classes = 21
-    batch_size=16
-    epochs=10
-    resume = False
-    lr = 0.004
-    momentum = 0.9
-    weight_decay = 1e-4
-    data_loader, data_loader_test=get_pascal_voc("pascal_voc_dataset",batch_size,train_size=481,val_size=513)
-    eval_steps=1000
-    resume_path = '/content/drive/My Drive/Colab Notebooks/SemanticSegmentation/checkpoints/voc_50d'
-    save_path = '/content/drive/My Drive/Colab Notebooks/SemanticSegmentation/checkpoints/voc_resnet50d_noise2'
+# def main():
+#     num_classes = 21
+#     batch_size=16
+#     epochs=10
+#     resume = False
+#     lr = 0.004
+#     momentum = 0.9
+#     weight_decay = 1e-4
+#     data_loader, data_loader_test=get_pascal_voc("pascal_voc_dataset",batch_size,train_size=481,val_size=513)
+#     eval_steps=1000
+#     class_weight=None
+#     mixed_precision=False
+#     resume_path = '/content/drive/My Drive/Colab Notebooks/SemanticSegmentation/checkpoints/voc_50d'
+#     save_path = '/content/drive/My Drive/Colab Notebooks/SemanticSegmentation/checkpoints/voc_resnet50d_noise2'
+#
+#     device = torch.device('cuda') if torch.cuda.is_available() else torch.device('cpu')
+#     epoch_start=0
+#     model=Deeplab3P(name='resnet50d',num_classes=num_classes,pretrained_backbone=True,sc=True,pretrained=resume_path).to(device)
+#     params_to_optimize=model.parameters()
+#     optimizer = torch.optim.SGD(params_to_optimize, lr=lr,
+#                                 momentum=momentum, weight_decay=weight_decay)
+#     scaler = amp.GradScaler(enabled=mixed_precision)
+#     loss_fun=get_loss_fun(class_weight).to(device)
+#     lr_scheduler = torch.optim.lr_scheduler.LambdaLR(
+#         optimizer,lambda x: (1 - x / (len(data_loader) * epochs)) ** 0.9)
+#     if resume:
+#         dic=torch.load(resume_path,map_location='cpu')
+#         model.load_state_dict(dic['model'])
+#         optimizer.load_state_dict(dic['optimizer'])
+#         lr_scheduler.load_state_dict(dic['lr_scheduler'])
+#         epoch_start = dic['epoch'] + 1
+#
+#     train(model, save_path, range(epoch_start,epochs),optimizer, data_loader,
+#           data_loader_test, lr_scheduler, device,num_classes,eval_steps,loss_fun,mixed_precision,scaler)
 
+def get_dataset_loaders(config):
+    name=config["dataset_name"]
+    if name=="pascal_voc":
+        f=get_pascal_voc
+    elif name=="cityscapes":
+        f=get_cityscapes
+    elif name=="coco":
+        f=get_coco
+    else:
+        raise NotImplementedError()
+    data_loader, data_loader_test=f(config["dataset_dir"],config["batch_size"],train_size=config["train_size"],val_size=config["val_size"])
+    return data_loader, data_loader_test
+
+def get_model(config):
+    return Deeplab3P(name=config["model_name"],
+                     num_classes=config["num_classes"],
+                     pretrained_backbone=config["pretrained_backbone"],
+                     sc=config["separable_convolution"],
+                     pretrained=config["pretrained_path"])
+
+def main2(config_filename):
+    with open(config_filename) as file:
+        config=yaml.full_load(file)
+        print(config)
+    save_best_path=config["save_best_path"]
+    save_latest_path=config["save_latest_path"]
+    epochs=config["epochs"]
+    num_classes=config["num_classes"]
+    eval_steps=config["eval_steps"]
+    class_weight=config["class_weight"]
+    mixed_precision=config["mixed_precision"]
     device = torch.device('cuda') if torch.cuda.is_available() else torch.device('cpu')
-    epoch_start=0
-    max_iter=len(data_loader)*1.0
-    model=Deeplab3P(name='resnet50d',num_classes=num_classes,pretrained_backbone=True,sc=True,pretrained=resume_path).to(device)
+    data_loader, data_loader_test=get_dataset_loaders(config)
+    model=get_model(config).to(device)
     params_to_optimize=model.parameters()
-    optimizer = torch.optim.SGD(params_to_optimize, lr=lr,
-                                momentum=momentum, weight_decay=weight_decay)
-
+    optimizer = torch.optim.SGD(params_to_optimize, lr=config["lr"],
+                            momentum=config["momentum"], weight_decay=config["weight_decay"])
+    scaler = amp.GradScaler(enabled=mixed_precision)
+    loss_fun=get_loss_fun(class_weight)
     lr_scheduler = torch.optim.lr_scheduler.LambdaLR(
-        optimizer,lambda x: (1 - x / (max_iter * epochs)) ** 0.9)
-    if resume:
-        dic=torch.load(resume_path,map_location='cpu')
+        optimizer,lambda x: (1 - x / (len(data_loader) * epochs)) ** 0.9)
+
+    epoch_start=0
+    best_mIU=0
+    save_every_k_epochs=config["save_every_k_epochs"]
+    save_best_on_epochs=[i*save_every_k_epochs-1 for i in range(1,epochs//save_every_k_epochs+1)]
+    if epochs-1 not in save_best_on_epochs:
+        save_best_on_epochs.append(epochs-1)
+    print("save on epochs: ",save_best_on_epochs)
+
+    if config["resume"]:
+        dic=torch.load(config["resume_path"],map_location='cpu')
         model.load_state_dict(dic['model'])
         optimizer.load_state_dict(dic['optimizer'])
         lr_scheduler.load_state_dict(dic['lr_scheduler'])
         epoch_start = dic['epoch'] + 1
+        if "best_mIU" in dic:
+            best_mIU=dic["best_mIU"]
+        if "scaler" in dic:
+            scaler.load_state_dict(dic[scaler])
 
-    train(model, save_path, range(epoch_start,epochs),optimizer, data_loader,
-          data_loader_test, lr_scheduler, device,num_classes, max_iter,None,eval_steps)
+    train(model, save_best_path,save_latest_path, range(epoch_start,epochs),optimizer, data_loader,
+          data_loader_test, lr_scheduler, device,num_classes,save_best_on_epochs,loss_fun,mixed_precision,scaler,best_mIU)
+def check3(config_filename):
+    with open(config_filename) as file:
+        config=yaml.full_load(file)
+        print(config)
+    device = torch.device('cuda') if torch.cuda.is_available() else torch.device('cpu')
+    data_loader, data_loader_test=get_dataset_loaders(config)
+    model=get_model(config).to(device)
+    num_classes=config["num_classes"]
+    eval_steps = len(data_loader_test)
+    mixed_precision=config["mixed_precision"]
+    print("evaluating")
+    confmat = evaluate(model, data_loader_test, device=device,
+                       num_classes=num_classes,eval_steps=eval_steps,mixed_precision=mixed_precision)
+    print(confmat)
 
 def check():
     device = torch.device(
@@ -194,6 +264,7 @@ def check2():
                        num_classes=num_classes,eval_steps=eval_steps,print_every=5)
     print(confmat)
 if __name__=='__main__':
-    check()
+    main2("configs/voc_resnet50d_30epochs.yaml")
+    #check()
     #main()
     #check()
