@@ -1,0 +1,30 @@
+#MODEL:
+model_name: resnet50d
+num_classes: 21
+pretrained_backbone: True
+separable_convolution: True
+
+#OPTIM:
+epochs: 30
+resume: False
+lr: 0.01
+momentum: 0.9
+weight_decay: 0.0001
+class_weight: null
+
+#TRAIN:
+batch_size: 16
+train_size: 481
+mixed_precision: False
+
+#TEST:
+eval_steps: 1000
+val_size: 513
+
+save_every_k_epochs: 3
+dataset_name: pascal_voc
+dataset_dir: pascal_voc_dataset
+pretrained_path: ''
+resume_path: /content/drive/My Drive/Colab Notebooks/SemanticSegmentation/checkpoints/voc_50d_latest
+save_best_path: /content/drive/My Drive/Colab Notebooks/SemanticSegmentation/checkpoints/voc_50d
+save_latest_path: /content/drive/My Drive/Colab Notebooks/SemanticSegmentation/checkpoints/voc_50d_latest
