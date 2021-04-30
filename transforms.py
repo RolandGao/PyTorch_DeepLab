@@ -4,6 +4,7 @@ from torchvision.transforms import functional as F
 from PIL import Image
 import torchvision.transforms as T
 import torch
+from augment import apply_op_both,rand_augment_both
 
 class Compose(object):
     """
@@ -34,6 +35,16 @@ class ToTensor(object):
         target = torch.as_tensor(np.array(target), dtype=torch.int64)
         return image, target
 
+class RandAugment:
+    def __init__(self,N,M,prob=1.0,fill=(128,128,128),ignore_value=255):
+        self.N=N
+        self.M=M
+        self.prob=prob
+        self.fill=fill
+        self.ignore_value=ignore_value
+    def __call__(self, image, target):
+        return rand_augment_both(image,target,n_ops=self.N,magnitude=self.M,prob=self.prob,fill=self.fill,ignore_value=self.ignore_value)
+
 
 class Normalize(object):
     """
@@ -57,7 +68,7 @@ class RandomResize(object):
     def __call__(self, image, target):
         size = random.randint(self.min_size, self.max_size)
         image = F.resize(image, size)
-        target = F.resize(target, size, interpolation=Image.NEAREST)
+        target = F.resize(target, size, interpolation=F.InterpolationMode.NEAREST)
         return image, target
 
 class ColorJitter:
@@ -138,7 +149,7 @@ class RandomScale(object):
         img_w, img_h = image.size
         img_w,img_h=int(img_w*scale),int(img_h*scale)
         image=F.resize(image,[img_h,img_w])
-        label=F.resize(label,[img_h,img_w],interpolation=Image.NEAREST)
+        label=F.resize(label,[img_h,img_w],interpolation=F.InterpolationMode.NEAREST)
         return image,label
 
 

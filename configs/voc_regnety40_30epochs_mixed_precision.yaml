@@ -24,7 +24,8 @@ val_size: 513
 save_every_k_epochs: 3
 dataset_name: pascal_voc
 dataset_dir: pascal_voc_dataset
+aug_mode: baseline
 pretrained_path: ''
-resume_path: /content/drive/My Drive/Colab Notebooks/SemanticSegmentation/checkpoints/voc_50d_latest
-save_best_path: /content/drive/My Drive/Colab Notebooks/SemanticSegmentation/checkpoints/voc_50d
-save_latest_path: /content/drive/My Drive/Colab Notebooks/SemanticSegmentation/checkpoints/voc_50d_latest
+resume_path: /content/drive/My Drive/Colab Notebooks/SemanticSegmentation/checkpoints/voc_regnety40_mixed_precision_latest
+save_best_path: /content/drive/My Drive/Colab Notebooks/SemanticSegmentation/checkpoints/voc_regnety40_mixed_precision
+save_latest_path: /content/drive/My Drive/Colab Notebooks/SemanticSegmentation/checkpoints/voc_regnety40_mixed_precision_latest

@@ -167,7 +167,10 @@ def get_dataset_loaders(config):
         f=get_coco
     else:
         raise NotImplementedError()
-    data_loader, data_loader_test=f(config["dataset_dir"],config["batch_size"],train_size=config["train_size"],val_size=config["val_size"])
+    mode="baseline"
+    if "aug_mode" in config:
+        mode=config["aug_mode"]
+    data_loader, data_loader_test=f(config["dataset_dir"],config["batch_size"],train_size=config["train_size"],val_size=config["val_size"],mode=mode)
     return data_loader, data_loader_test
 
 def get_model(config):
@@ -185,7 +188,7 @@ def main2(config_filename):
     save_latest_path=config["save_latest_path"]
     epochs=config["epochs"]
     num_classes=config["num_classes"]
-    eval_steps=config["eval_steps"]
+    # eval_steps=config["eval_steps"]
     class_weight=config["class_weight"]
     mixed_precision=config["mixed_precision"]
     device = torch.device('cuda') if torch.cuda.is_available() else torch.device('cpu')

@@ -1,9 +1,10 @@
 cityscapesscripts
-dataclasses
 opencv-python
+pip-check-reqs
 pip-chill
 ptflops
 pycocotools
 pyqt5
+pyyaml
 timm
 typing-extensions
