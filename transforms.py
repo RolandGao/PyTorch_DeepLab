@@ -84,8 +84,9 @@ class AddNoise:#additive gaussian noise
     def __call__(self, image, target):
         factor = random.uniform(0, self.factor)
         image = np.array(image)
-        gauss = np.array(torch.randn(*image.shape)) * factor
-        noisy = (image + gauss).clip(0, 255).astype("uint8")
+        assert(image.dtype==np.uint8)
+        gauss = (np.array(torch.randn(*image.shape)) * factor).astype("uint8")
+        noisy = (image + gauss).clip(0, 255)
         image = Image.fromarray(noisy)
         return image, target
 
@@ -191,3 +192,35 @@ class RandomHorizontalFlip(object):
             image = F.hflip(image)
             target = F.hflip(target)
         return image, target
+
+def f():
+    image=np.zeros((50,50),dtype=np.uint8)
+    assert(image.dtype==np.uint8)
+    gauss=(np.array(torch.randn(50,50)*10)).astype("uint8")
+    noisy = (image + gauss).clip(0, 255)
+    # print(noisy.dtype)
+    # factor = random.uniform(0, 10)
+    # image = Image.open("cityscapes_dataset/leftImg8bit/train/aachen/aachen_000000_000019_leftImg8bit.png")
+    # image=np.array(image)
+    # gauss = np.array(torch.randn(*image.shape)) * factor
+    # noisy = (image + gauss).clip(0, 255).astype("uint8")
+
+def g():
+    image=np.zeros((50,50))
+    gauss=np.array(torch.randn(50,50)*10)
+    noisy = (image + gauss).clip(0, 255).astype("uint8")
+    # print(noisy.dtype)
+    # factor = random.uniform(0, 10)
+    # image = Image.open("cityscapes_dataset/leftImg8bit/train/aachen/aachen_000000_000019_leftImg8bit.png")
+    # image=np.array(image)
+    # gauss = np.array(torch.randn(*image.shape)) * factor
+    # print(gauss.dtype)
+    # noisy = (image + gauss).clip(0, 255).astype("uint8")
+
+
+if __name__=='__main__':
+    f()
+    g()
+    #import timeit
+    #print(timeit.timeit('f()', globals=globals(), number=100))
+    #print(timeit.timeit('g()', globals=globals(), number=100))
