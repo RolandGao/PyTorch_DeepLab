@@ -21,6 +21,10 @@ mixed_precision: True
 eval_steps: 1000
 val_size: 513
 
+#benchmark
+warmup_iter: 15
+num_iter: 50
+
 save_every_k_epochs: 3
 dataset_name: pascal_voc
 dataset_dir: pascal_voc_dataset

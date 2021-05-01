@@ -1,4 +1,5 @@
 from model import Deeplab3P
+from benchmark import compute_time_full
 from data import get_cityscapes,get_pascal_voc,get_coco
 import datetime
 import time
@@ -265,8 +266,25 @@ def check2():
     confmat = evaluate(model, data_loader_test, device=device,
                        num_classes=num_classes,eval_steps=eval_steps,print_every=5)
     print(confmat)
+
+def benchmark(config_filename):
+    with open(config_filename) as file:
+        config=yaml.full_load(file)
+        print(config)
+    device = torch.device('cuda') if torch.cuda.is_available() else torch.device('cpu')
+    mixed_precision=config["mixed_precision"]
+    warmup_iter=config["warmup_iter"]
+    num_iter=config["num_iter"]
+    crop_size=config["train_size"]
+    batch_size=config["batch_size"]
+    num_classes=config["num_classes"]
+    model=get_model(config).to(device)
+    data_loader, data_loader_test=get_dataset_loaders(config)
+    compute_time_full(model,data_loader,warmup_iter,num_iter,device,crop_size,batch_size,num_classes,mixed_precision)
+
 if __name__=='__main__':
     main2("PyTorch_DeepLab/configs/voc_regnety40_30epochs_mixed_precision.yaml")
+    benchmark("PyTorch_DeepLab/configs/voc_regnety40_30epochs_mixed_precision.yaml")
     #check()
     #main()
     #check()
