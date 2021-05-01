@@ -70,7 +70,6 @@ def evaluate(model, data_loader, device, num_classes,eval_steps,mixed_precision,
 
 def train_one_epoch(model, loss_fun, optimizer, loader, lr_scheduler, device, print_freq,mixed_precision,scaler):
     model.train()
-    scaler=amp.GradScaler(enabled=mixed_precision)
     losses=0
     for t, x in enumerate(loader):
         image, target=x
@@ -267,7 +266,7 @@ def check2():
                        num_classes=num_classes,eval_steps=eval_steps,print_every=5)
     print(confmat)
 if __name__=='__main__':
-    main2("configs/voc_resnet50d_30epochs.yaml")
+    main2("PyTorch_DeepLab/configs/voc_regnety40_30epochs_mixed_precision.yaml")
     #check()
     #main()
     #check()
