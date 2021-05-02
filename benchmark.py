@@ -4,6 +4,7 @@ import time
 import torch.cuda.amp as amp
 import torch.nn.functional
 
+@torch.no_grad()
 def compute_eval_time(model,device,warmup_iter,num_iter,crop_size,batch_size,mixed_precision):
     model.eval()
     x=torch.randn(batch_size,3,crop_size,crop_size).to(device)
@@ -92,7 +93,8 @@ def compute_memory_usage(model,device,crop_size,batch_size,num_classes,mixed_pre
         p.grad=None
     return t
 
-def compute_time_full(model,data_lodaer,warmup_iter,num_iter,device,crop_size,batch_size,num_classes,mixed_precision):
+def compute_time_no_loader(model,warmup_iter,num_iter,device,crop_size,batch_size,num_classes,mixed_precision):
+    torch.backends.cudnn.benchmark=True
     model=model.to(device)
     print("benchmarking eval time")
     eval_time=compute_eval_time(model,device,warmup_iter,num_iter,crop_size,batch_size,mixed_precision)
@@ -102,13 +104,38 @@ def compute_time_full(model,data_lodaer,warmup_iter,num_iter,device,crop_size,ba
     print("benchmarking memory usage")
     memory_usage=compute_memory_usage(model,device,crop_size,batch_size,num_classes,mixed_precision)
     print("benchmarking loader time")
-    loader_time=compute_loader_time(data_lodaer,warmup_iter,num_iter)
+    dic1={
+        "eval_time":eval_time,
+        "train_time":train_time,
+        "memory_usage":memory_usage
+    }
+    return dic1
+
+def compute_time_full(model,data_loader,warmup_iter,num_iter,device,crop_size,batch_size,num_classes,mixed_precision):
+    torch.backends.cudnn.benchmark=True
+    model=model.to(device)
+    print("benchmarking eval time")
+    eval_time=compute_eval_time(model,device,warmup_iter,num_iter,crop_size,batch_size,mixed_precision)
+    print("benchmarking train time")
+    train_fw_time,train_bw_time=compute_train_time(model,warmup_iter,num_iter,crop_size,batch_size,num_classes,mixed_precision)
+    train_time=train_fw_time+train_bw_time
+    print("benchmarking memory usage")
+    memory_usage=compute_memory_usage(model,device,crop_size,batch_size,num_classes,mixed_precision)
+    print("benchmarking loader time")
+    loader_time=compute_loader_time(data_loader,warmup_iter,num_iter)
     loader_overhead=max(0,loader_time-train_time)/train_time
-    dic={
+    dic1={
         "eval_time":eval_time,
         "train_time":train_time,
         "memory_usage":memory_usage,
         "loader_time":loader_time,
         "loader_overhead":loader_overhead
     }
-    return dic
+    dic2={
+        "eval_time":eval_time*len(data_loader),
+        "train_time":train_time*len(data_loader),
+        "memory_usage":memory_usage,
+        "loader_time":loader_time,
+        "loader_overhead":loader_overhead
+    }
+    return dic1

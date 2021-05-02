@@ -1,5 +1,5 @@
 from model import Deeplab3P
-from benchmark import compute_time_full
+from benchmark import compute_time_full, compute_time_no_loader
 from data import get_cityscapes,get_pascal_voc,get_coco
 import datetime
 import time
@@ -184,6 +184,7 @@ def main2(config_filename):
     with open(config_filename) as file:
         config=yaml.full_load(file)
         print(config)
+    torch.backends.cudnn.benchmark=True
     save_best_path=config["save_best_path"]
     save_latest_path=config["save_latest_path"]
     epochs=config["epochs"]
@@ -279,8 +280,9 @@ def benchmark(config_filename):
     batch_size=config["batch_size"]
     num_classes=config["num_classes"]
     model=get_model(config).to(device)
-    data_loader, data_loader_test=get_dataset_loaders(config)
-    dic=compute_time_full(model,data_loader,warmup_iter,num_iter,device,crop_size,batch_size,num_classes,mixed_precision)
+    #data_loader, data_loader_test=get_dataset_loaders(config)
+    #dic=compute_time_full(model,data_loader,warmup_iter,num_iter,device,crop_size,batch_size,num_classes,mixed_precision)
+    dic=compute_time_no_loader(model,warmup_iter,num_iter,device,crop_size,batch_size,num_classes,mixed_precision)
     for k,v in dic.items():
         print(f"{k}: {v}")
 
