@@ -280,11 +280,13 @@ def benchmark(config_filename):
     num_classes=config["num_classes"]
     model=get_model(config).to(device)
     data_loader, data_loader_test=get_dataset_loaders(config)
-    compute_time_full(model,data_loader,warmup_iter,num_iter,device,crop_size,batch_size,num_classes,mixed_precision)
+    dic=compute_time_full(model,data_loader,warmup_iter,num_iter,device,crop_size,batch_size,num_classes,mixed_precision)
+    for k,v in dic.items():
+        print(f"{k}: {v}")
 
 if __name__=='__main__':
-    main2("PyTorch_DeepLab/configs/voc_regnety40_30epochs_mixed_precision.yaml")
     benchmark("PyTorch_DeepLab/configs/voc_regnety40_30epochs_mixed_precision.yaml")
+    #main2("PyTorch_DeepLab/configs/voc_regnety40_30epochs_mixed_precision.yaml")
     #check()
     #main()
     #check()

@@ -30,8 +30,7 @@ def get_sampler(dataset,dataset_test,distributed=False):
 def worker_init_fn(worker_id):
     from datetime import datetime
     np.random.seed(datetime.now().microsecond)
-def get_dataloader_train(dataset,batch_size):
-    num_workers = 4
+def get_dataloader_train(dataset,batch_size,num_workers=4):
     #dataset = get_coco(image_folder, ann_file, "train",get_temp_transform())
     train_sampler = torch.utils.data.RandomSampler(dataset)
     data_loader = torch.utils.data.DataLoader(
@@ -40,8 +39,7 @@ def get_dataloader_train(dataset,batch_size):
         collate_fn=collate_fn, drop_last=True)
     return data_loader
 
-def get_dataloader_val(dataset_test):
-    num_workers = 4
+def get_dataloader_val(dataset_test,num_workers=4):
     test_sampler = torch.utils.data.SequentialSampler(dataset_test)
     data_loader_test = torch.utils.data.DataLoader(
         dataset_test, batch_size=1,

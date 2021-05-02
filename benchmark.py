@@ -94,10 +94,14 @@ def compute_memory_usage(model,device,crop_size,batch_size,num_classes,mixed_pre
 
 def compute_time_full(model,data_lodaer,warmup_iter,num_iter,device,crop_size,batch_size,num_classes,mixed_precision):
     model=model.to(device)
+    print("benchmarking eval time")
     eval_time=compute_eval_time(model,device,warmup_iter,num_iter,crop_size,batch_size,mixed_precision)
+    print("benchmarking train time")
     train_fw_time,train_bw_time=compute_train_time(model,warmup_iter,num_iter,crop_size,batch_size,num_classes,mixed_precision)
     train_time=train_fw_time+train_bw_time
+    print("benchmarking memory usage")
     memory_usage=compute_memory_usage(model,device,crop_size,batch_size,num_classes,mixed_precision)
+    print("benchmarking loader time")
     loader_time=compute_loader_time(data_lodaer,warmup_iter,num_iter)
     loader_overhead=max(0,loader_time-train_time)/train_time
     dic={
