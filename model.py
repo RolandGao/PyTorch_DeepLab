@@ -99,19 +99,6 @@ def profile(model,device,num_iter=15):
         y=model(x)
     t2=time.time()
     return (t2-t1)/num_iter
-def profile_warmup(model,device):
-    import time
-    num_iter=0
-    model=model.to(device)
-    model.eval()
-    x=torch.randn(2,3,321,321).to(device)
-    t1=time.time()
-    for _ in range(100):
-        num_iter+=1
-        y=model(x)
-        t2=time.time()
-        average_time=(t2-t1)/num_iter
-        print(num_iter,average_time)
 
 def profiler(models):
     device = torch.device('cuda') if torch.cuda.is_available() else torch.device('cpu')

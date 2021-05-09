@@ -5,6 +5,8 @@ import torch
 from model import Deeplab3P
 import time
 from data import get_cityscapes,get_pascal_voc
+from cityscapes import Cityscapes
+
 mean = np.array([0.485, 0.456, 0.406])
 std = np.array([0.229, 0.224, 0.225])
 
@@ -13,6 +15,14 @@ def get_colors():
     colors = torch.arange(255).view(-1, 1) * palette
     colors = (colors % 255).numpy().astype("uint8")
     return colors
+def get_colors_cityscapes():
+    colors=np.zeros((256,3))
+    colors[255]=[255,255,255]
+    for c in Cityscapes.classes:
+        if 0<=c.train_id<=18:
+            colors[c.train_id]=c.color
+    return colors.astype("uint8")
+
 
 def show_image(inp, title=None):
     """Imshow for Tensor."""
@@ -25,6 +35,11 @@ def show_image(inp, title=None):
 
 def show_mask(images):
     colors=get_colors()
+    r = Image.fromarray(images.byte().cpu().numpy())
+    r.putpalette(colors)
+    plt.imshow(r)
+def show_cityscapes_mask(images):
+    colors=get_colors_cityscapes()
     r = Image.fromarray(images.byte().cpu().numpy())
     r.putpalette(colors)
     plt.imshow(r)
@@ -83,11 +98,6 @@ def show(model,data_loader,device,show_mask,num_images=5,skip=4,images_per_line=
                 plt.subplot(num_rows,3*images_per_line,images_so_far+3)
                 plt.axis('off')
                 show_mask(output)
-                # image=image*std_t+mean_t
-                # output = image / torch.sigmoid(output)
-                # #print((target-output).abs().mean())
-                # output=image/output
-                # show_mask(output)
 
                 images_so_far+=3
                 if images_so_far==3*num_images:
@@ -97,18 +107,21 @@ def show(model,data_loader,device,show_mask,num_images=5,skip=4,images_per_line=
     plt.tight_layout()
     plt.show()
 
-if __name__=="__main__":
-    import torchvision
-    num_images=4
-    images_per_line=2
+def show_cityscapes():
+    num_images=16
+    images_per_line=4
     skip=0
-    num_classes = 21
-    pretrained_path='checkpoints/voc_resnet50d_noise'
-    device = torch.device('cuda') if torch.cuda.is_available() else torch.device('cpu')
+    _,data_loader=get_cityscapes("cityscapes_dataset",16,train_size=481,val_size=513)
+    display(data_loader,show_cityscapes_mask,num_images=num_images,skip=skip,images_per_line=images_per_line)
 
-    _,data_loader=get_pascal_voc("pascal_voc_dataset",16,train_size=385,val_size=385)
+if __name__=="__main__":
+    show_cityscapes()
+
+    #_,data_loader=get_pascal_voc("pascal_voc_dataset",16,train_size=385,val_size=385)
+
+    #pretrained_path='checkpoints/voc_resnet50d_noise'
     #model=torchvision.models.segmentation.deeplabv3_resnet101(pretrained=True).to(device)
-    model=Deeplab3P(name='resnet50d',num_classes=num_classes,pretrained=pretrained_path,sc=True).to(
-        device)
-    #display(data_loader,show_mask,num_images=num_images,skip=skip,images_per_line=images_per_line)
-    show(model,data_loader,device,show_mask,num_images=num_images,skip=skip,images_per_line=images_per_line)
+    # model=Deeplab3P(name='resnet50d',num_classes=num_classes,pretrained=pretrained_path,sc=True).to(
+    #     device)
+
+    #show(model,data_loader,device,show_mask,num_images=num_images,skip=skip,images_per_line=images_per_line)

@@ -94,7 +94,6 @@ def compute_memory_usage(model,device,crop_size,batch_size,num_classes,mixed_pre
     return t
 
 def compute_time_no_loader(model,warmup_iter,num_iter,device,crop_size,batch_size,num_classes,mixed_precision):
-    torch.backends.cudnn.benchmark=True
     model=model.to(device)
     print("benchmarking eval time")
     eval_time=compute_eval_time(model,device,warmup_iter,num_iter,crop_size,batch_size,mixed_precision)
@@ -112,7 +111,6 @@ def compute_time_no_loader(model,warmup_iter,num_iter,device,crop_size,batch_siz
     return dic1
 
 def compute_time_full(model,data_loader,warmup_iter,num_iter,device,crop_size,batch_size,num_classes,mixed_precision):
-    torch.backends.cudnn.benchmark=True
     model=model.to(device)
     print("benchmarking eval time")
     eval_time=compute_eval_time(model,device,warmup_iter,num_iter,crop_size,batch_size,mixed_precision)

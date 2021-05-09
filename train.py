@@ -10,6 +10,7 @@ from torch import nn
 import torch.nn.functional
 import yaml
 import torch.cuda.amp as amp
+import os
 
 class ConfusionMatrix(object):
     def __init__(self, num_classes):
@@ -53,15 +54,13 @@ def criterion2(inputs, target, w):
 def get_loss_fun(weight):
     return nn.CrossEntropyLoss(weight=weight,ignore_index=255)
 
-def evaluate(model, data_loader, device, num_classes,eval_steps,mixed_precision,print_every=100):
+def evaluate(model, data_loader, device, num_classes,mixed_precision,print_every=100):
     model.eval()
     confmat = ConfusionMatrix(num_classes)
     with torch.no_grad():
         for i,(image, target) in enumerate(data_loader):
             if (i+1)%print_every==0:
                 print(i+1)
-            if i==eval_steps:
-                break
             image, target = image.to(device), target.to(device)
             with amp.autocast(enabled=mixed_precision):
                 output = model(image)
@@ -108,7 +107,7 @@ def train(model, save_best_path,save_latest_path, epochs,optimizer, data_loader,
                         device, print_freq=50,mixed_precision=mixed_precision,scaler=scaler)
         if epoch in save_best_on_epochs:
             confmat = evaluate(model, data_loader_test, device=device,
-                               num_classes=num_classes,eval_steps=len(data_loader_test),mixed_precision=mixed_precision,print_every=100)
+                               num_classes=num_classes,mixed_precision=mixed_precision,print_every=100)
             print(confmat)
             acc_global, acc, iu = confmat.compute()
             mIU=iu.mean().item() * 100
@@ -121,41 +120,6 @@ def train(model, save_best_path,save_latest_path, epochs,optimizer, data_loader,
     total_time = time.time() - start_time
     total_time_str = str(datetime.timedelta(seconds=int(total_time)))
     print('Training time {}'.format(total_time_str))
-
-# def main():
-#     num_classes = 21
-#     batch_size=16
-#     epochs=10
-#     resume = False
-#     lr = 0.004
-#     momentum = 0.9
-#     weight_decay = 1e-4
-#     data_loader, data_loader_test=get_pascal_voc("pascal_voc_dataset",batch_size,train_size=481,val_size=513)
-#     eval_steps=1000
-#     class_weight=None
-#     mixed_precision=False
-#     resume_path = '/content/drive/My Drive/Colab Notebooks/SemanticSegmentation/checkpoints/voc_50d'
-#     save_path = '/content/drive/My Drive/Colab Notebooks/SemanticSegmentation/checkpoints/voc_resnet50d_noise2'
-#
-#     device = torch.device('cuda') if torch.cuda.is_available() else torch.device('cpu')
-#     epoch_start=0
-#     model=Deeplab3P(name='resnet50d',num_classes=num_classes,pretrained_backbone=True,sc=True,pretrained=resume_path).to(device)
-#     params_to_optimize=model.parameters()
-#     optimizer = torch.optim.SGD(params_to_optimize, lr=lr,
-#                                 momentum=momentum, weight_decay=weight_decay)
-#     scaler = amp.GradScaler(enabled=mixed_precision)
-#     loss_fun=get_loss_fun(class_weight).to(device)
-#     lr_scheduler = torch.optim.lr_scheduler.LambdaLR(
-#         optimizer,lambda x: (1 - x / (len(data_loader) * epochs)) ** 0.9)
-#     if resume:
-#         dic=torch.load(resume_path,map_location='cpu')
-#         model.load_state_dict(dic['model'])
-#         optimizer.load_state_dict(dic['optimizer'])
-#         lr_scheduler.load_state_dict(dic['lr_scheduler'])
-#         epoch_start = dic['epoch'] + 1
-#
-#     train(model, save_path, range(epoch_start,epochs),optimizer, data_loader,
-#           data_loader_test, lr_scheduler, device,num_classes,eval_steps,loss_fun,mixed_precision,scaler)
 
 def get_dataset_loaders(config):
     name=config["dataset_name"]
@@ -171,25 +135,59 @@ def get_dataset_loaders(config):
     if "aug_mode" in config:
         mode=config["aug_mode"]
     data_loader, data_loader_test=f(config["dataset_dir"],config["batch_size"],train_size=config["train_size"],val_size=config["val_size"],mode=mode)
+    print("train size:", len(data_loader))
+    print("val size:", len(data_loader_test))
     return data_loader, data_loader_test
 
 def get_model(config):
+    pretrained_backbone=config["pretrained_backbone"]
+    if config["resume"]:
+        pretrained_backbone=False
     return Deeplab3P(name=config["model_name"],
                      num_classes=config["num_classes"],
-                     pretrained_backbone=config["pretrained_backbone"],
+                     pretrained_backbone=pretrained_backbone,
                      sc=config["separable_convolution"],
                      pretrained=config["pretrained_path"])
 
-def main2(config_filename):
+def get_config_and_check_files(config_filename):
     with open(config_filename) as file:
         config=yaml.full_load(file)
-        print(config)
+    save_best_dir=os.path.dirname(config["save_best_path"])
+    save_latest_dir=os.path.dirname(config["save_latest_path"])
+    if not os.path.isdir(save_best_dir):
+        raise FileNotFoundError(f"{save_best_dir} is not a directory")
+    if not os.path.isdir(save_latest_dir):
+        raise FileNotFoundError(f"{save_latest_dir} is not a directory")
+    if not os.path.isdir(config["dataset_dir"]):
+        raise FileNotFoundError(f"{config['dataset_dir']} is not a directory")
+    if config["resume"]:
+        if not os.path.isfile(config["resume_path"]):
+            raise FileNotFoundError(f"{config['resume_path']} is not a file")
+    elif not config["pretrained_backbone"]:
+        if not os.path.isfile(config["pretrained_path"]):
+            raise FileNotFoundError(f"{config['pretrained_path']} is not a file")
+    return config
+
+def get_epochs_to_save(config):
+    epochs=config["epochs"]
+    save_every_k_epochs=config["save_every_k_epochs"]
+    save_best_on_epochs=[i*save_every_k_epochs-1 for i in range(1,epochs//save_every_k_epochs+1)]
+    if epochs-1 not in save_best_on_epochs:
+        save_best_on_epochs.append(epochs-1)
+    if "save_last_k_epochs" in config:
+        for i in range(epochs-config["save_last_k_epochs"],epochs):
+            if i not in save_best_on_epochs:
+                save_best_on_epochs.append(i)
+    save_best_on_epochs=sorted(save_best_on_epochs)
+    return save_best_on_epochs
+
+def main2(config_filename):
+    config=get_config_and_check_files(config_filename)
     torch.backends.cudnn.benchmark=True
     save_best_path=config["save_best_path"]
     save_latest_path=config["save_latest_path"]
     epochs=config["epochs"]
     num_classes=config["num_classes"]
-    # eval_steps=config["eval_steps"]
     class_weight=config["class_weight"]
     mixed_precision=config["mixed_precision"]
     device = torch.device('cuda') if torch.cuda.is_available() else torch.device('cpu')
@@ -205,10 +203,7 @@ def main2(config_filename):
 
     epoch_start=0
     best_mIU=0
-    save_every_k_epochs=config["save_every_k_epochs"]
-    save_best_on_epochs=[i*save_every_k_epochs-1 for i in range(1,epochs//save_every_k_epochs+1)]
-    if epochs-1 not in save_best_on_epochs:
-        save_best_on_epochs.append(epochs-1)
+    save_best_on_epochs=get_epochs_to_save(config)
     print("save on epochs: ",save_best_on_epochs)
 
     if config["resume"]:
@@ -220,58 +215,55 @@ def main2(config_filename):
         if "best_mIU" in dic:
             best_mIU=dic["best_mIU"]
         if "scaler" in dic:
-            scaler.load_state_dict(dic[scaler])
+            scaler.load_state_dict(dic["scaler"])
 
     train(model, save_best_path,save_latest_path, range(epoch_start,epochs),optimizer, data_loader,
           data_loader_test, lr_scheduler, device,num_classes,save_best_on_epochs,loss_fun,mixed_precision,scaler,best_mIU)
 def check3(config_filename):
-    with open(config_filename) as file:
-        config=yaml.full_load(file)
-        print(config)
+    config=get_config_and_check_files(config_filename)
+    torch.backends.cudnn.benchmark=True
     device = torch.device('cuda') if torch.cuda.is_available() else torch.device('cpu')
     data_loader, data_loader_test=get_dataset_loaders(config)
     model=get_model(config).to(device)
     num_classes=config["num_classes"]
-    eval_steps = len(data_loader_test)
     mixed_precision=config["mixed_precision"]
     print("evaluating")
     confmat = evaluate(model, data_loader_test, device=device,
-                       num_classes=num_classes,eval_steps=eval_steps,mixed_precision=mixed_precision)
+                       num_classes=num_classes,mixed_precision=mixed_precision)
     print(confmat)
 
-def check():
-    device = torch.device(
-        'cuda') if torch.cuda.is_available() else torch.device('cpu')
-    num_classes = 21
-    pretrained_path='/content/drive/My Drive/Colab Notebooks/SemanticSegmentation/checkpoints/voc_resnet50d_noise2'
-    #voc_resnet50d_noise
-    data_loader, data_loader_test=get_pascal_voc("pascal_voc_dataset",16,train_size=481,val_size=513)
-    eval_steps = len(data_loader_test)
-    model=Deeplab3P(name="resnet50d",num_classes=num_classes,pretrained=pretrained_path,sc=True).to(
-        device)
-    print("evaluating")
-    confmat = evaluate(model, data_loader_test, device=device,
-                       num_classes=num_classes,eval_steps=eval_steps,print_every=100)
-    print(confmat)
-def check2():
-    device = torch.device(
-        'cuda') if torch.cuda.is_available() else torch.device('cpu')
-    num_classes = 21
-    pretrained_path='checkpoints/voc_mobilenetv2'
-    #pretrained_path='checkpoints/voc_regnety40'
-    data_loader, data_loader_test=get_pascal_voc("pascal_voc_dataset",16,train_size=385,val_size=385)
-    eval_steps = 100
-    model=Deeplab3P(name='mobilenetv2_100',num_classes=num_classes,pretrained=pretrained_path,sc=False).to(
-        device)
-    print("evaluating")
-    confmat = evaluate(model, data_loader_test, device=device,
-                       num_classes=num_classes,eval_steps=eval_steps,print_every=5)
-    print(confmat)
+# def check():
+#     device = torch.device(
+#         'cuda') if torch.cuda.is_available() else torch.device('cpu')
+#     num_classes = 21
+#     pretrained_path='/content/drive/My Drive/Colab Notebooks/SemanticSegmentation/checkpoints/voc_resnet50d_noise2'
+#     #voc_resnet50d_noise
+#     data_loader, data_loader_test=get_pascal_voc("pascal_voc_dataset",16,train_size=481,val_size=513)
+#     eval_steps = len(data_loader_test)
+#     model=Deeplab3P(name="resnet50d",num_classes=num_classes,pretrained=pretrained_path,sc=True).to(
+#         device)
+#     print("evaluating")
+#     confmat = evaluate(model, data_loader_test, device=device,
+#                        num_classes=num_classes,eval_steps=eval_steps,print_every=100)
+#     print(confmat)
+# def check2():
+#     device = torch.device(
+#         'cuda') if torch.cuda.is_available() else torch.device('cpu')
+#     num_classes = 21
+#     pretrained_path='checkpoints/voc_mobilenetv2'
+#     #pretrained_path='checkpoints/voc_regnety40'
+#     data_loader, data_loader_test=get_pascal_voc("pascal_voc_dataset",16,train_size=385,val_size=385)
+#     eval_steps = 100
+#     model=Deeplab3P(name='mobilenetv2_100',num_classes=num_classes,pretrained=pretrained_path,sc=False).to(
+#         device)
+#     print("evaluating")
+#     confmat = evaluate(model, data_loader_test, device=device,
+#                        num_classes=num_classes,eval_steps=eval_steps,print_every=5)
+#     print(confmat)
 
 def benchmark(config_filename):
-    with open(config_filename) as file:
-        config=yaml.full_load(file)
-        print(config)
+    config=get_config_and_check_files(config_filename)
+    torch.backends.cudnn.benchmark=True
     device = torch.device('cuda') if torch.cuda.is_available() else torch.device('cpu')
     mixed_precision=config["mixed_precision"]
     warmup_iter=config["warmup_iter"]
@@ -287,8 +279,11 @@ def benchmark(config_filename):
         print(f"{k}: {v}")
 
 if __name__=='__main__':
-    benchmark("PyTorch_DeepLab/configs/voc_regnety40_30epochs_mixed_precision.yaml")
+    #validation example nums
+    #config_filename="PyTorch_DeepLab/configs/voc_regnety40_30epochs_mixed_precision.yaml"
+    config_filename2="configs/voc_regnety40_30epochs_mixed_precision.yaml"
+    config=get_config_and_check_files(config_filename2)
+    print(config)
+    print(get_epochs_to_save(config))
+    #benchmark("PyTorch_DeepLab/configs/voc_regnety40_30epochs_mixed_precision.yaml")
     #main2("PyTorch_DeepLab/configs/voc_regnety40_30epochs_mixed_precision.yaml")
-    #check()
-    #main()
-    #check()

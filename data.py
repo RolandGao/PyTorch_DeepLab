@@ -47,16 +47,12 @@ def get_cityscapes(root,batch_size=16,val_size=513,train_size=481,mode="baseline
     val=Cityscapes(root, split="val", target_type="semantic", transforms=build_transforms(False, val_size, train_size,mode))
     train_loader = get_dataloader_train(train, batch_size,num_workers)
     val_loader = get_dataloader_val(val,num_workers)
-    print("train size:", len(train_loader))
-    print("val size:", len(val_loader))
     return train_loader,val_loader
 def get_coco(root,batch_size=16,val_size=513,train_size=481,mode="baseline",num_workers=4):
     train=get_coco_dataset(root, "train", build_transforms(True, val_size, train_size,mode))
     val=get_coco_dataset(root, "val", build_transforms(False, val_size, train_size,mode))
     train_loader = get_dataloader_train(train, batch_size,num_workers)
     val_loader = get_dataloader_val(val,num_workers)
-    print("train size:", len(train_loader))
-    print("val size:", len(val_loader))
     return train_loader, val_loader
 def get_pascal_voc(root,batch_size=16,val_size=513,train_size=481,mode="baseline",num_workers=4):
     download=False
@@ -66,8 +62,6 @@ def get_pascal_voc(root,batch_size=16,val_size=513,train_size=481,mode="baseline
                             download)
     train_loader = get_dataloader_train(train, batch_size,num_workers)
     val_loader = get_dataloader_val(val,num_workers)
-    print("train size:", len(train_loader))
-    print("val size:", len(val_loader))
     return train_loader, val_loader
 
 if __name__ == '__main__':

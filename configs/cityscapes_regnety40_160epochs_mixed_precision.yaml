@@ -1,11 +1,11 @@
 #MODEL:
 model_name: regnety_040
-num_classes: 21
+num_classes: 19
 pretrained_backbone: True
 separable_convolution: False
 
 #OPTIM:
-epochs: 30
+epochs: 160
 resume: False
 lr: 0.01
 momentum: 0.9
@@ -26,13 +26,13 @@ num_iter: 30
 
 save_every_k_epochs: 3
 save_last_k_epochs: 8
-dataset_name: pascal_voc
-dataset_dir: pascal_voc_dataset
+dataset_name: cityscapes
+dataset_dir: cityscapes_dataset
 aug_mode: baseline
 pretrained_path: ''
-resume_path: /content/drive/My Drive/Colab Notebooks/SemanticSegmentation/checkpoints/voc_regnety40_mixed_precision_latest
-save_best_path: /content/drive/My Drive/Colab Notebooks/SemanticSegmentation/checkpoints/voc_regnety40_mixed_precision
-save_latest_path: /content/drive/My Drive/Colab Notebooks/SemanticSegmentation/checkpoints/voc_regnety40_mixed_precision_latest
+resume_path: /content/drive/My Drive/Colab Notebooks/SemanticSegmentation/checkpoints/cityscapes_regnety40_latest
+save_best_path: /content/drive/My Drive/Colab Notebooks/SemanticSegmentation/checkpoints/cityscapes_regnety40
+save_latest_path: /content/drive/My Drive/Colab Notebooks/SemanticSegmentation/checkpoints/cityscapes_regnety40_latest
 
 #save_best_path: checkpoints/voc_regnety40_mixed_precision
 #save_latest_path: checkpoints/voc_regnety40_mixed_precision_latest

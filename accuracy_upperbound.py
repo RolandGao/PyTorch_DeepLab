@@ -46,20 +46,26 @@ def evaluate(model, data_loader, device, num_classes,eval_steps,print_every=100)
             confmat.update(target.flatten(), output.argmax(1).flatten())
     return confmat
 
+def f(os,mode,device,num_classes):
+    net=DoNothingNet(output_stride=os,mode=mode).to(device)
+    #data_loader, data_loader_test=get_pascal_voc("pascal_voc_dataset",16,train_size=481,val_size=513)
+    data_loader, data_loader_test=get_cityscapes("cityscapes_dataset",16,train_size=480,val_size=1024,num_workers=0)
+    confmat=evaluate(net,data_loader_test,device,num_classes,eval_steps=100,print_every=20)
+    return confmat
+
 def experiment1():
     device = torch.device('cuda') if torch.cuda.is_available() else torch.device('cpu')
     num_classes=19
-    dic={}
-    for mode in ["adaptive_avg","avg3x3"]:#"bilinear","adaptive_max","max3x3",
-        for os in [2]:
-            net=DoNothingNet(output_stride=os,mode=mode).to(device)
-            #data_loader, data_loader_test=get_pascal_voc("pascal_voc_dataset",16,train_size=481,val_size=513)
-            data_loader, data_loader_test=get_cityscapes("cityscapes_dataset",16,train_size=481,val_size=512)
-            confmat=evaluate(net,data_loader_test,device,num_classes,eval_steps=300,print_every=100)
+    print()
+    for mode in ["adaptive_avg"]:#"bilinear","adaptive_max","max3x3",
+        for os in [2,4,8,16,32]:
+            confmat=f(os,mode,device,num_classes)
+            # net=DoNothingNet(output_stride=os,mode=mode).to(device)
+            # #data_loader, data_loader_test=get_pascal_voc("pascal_voc_dataset",16,train_size=481,val_size=513)
+            # data_loader, data_loader_test=get_cityscapes("cityscapes_dataset",16,train_size=480,val_size=1024)
+            # confmat=evaluate(net,data_loader_test,device,num_classes,eval_steps=300,print_every=100)
+            print(mode,os)
             print(confmat)
-            acc_global, acc, iu=confmat.compute()
-            dic[(mode,os)]=iu.mean().item() * 100
-    print(dic)
 
 if __name__=="__main__":
     experiment1()

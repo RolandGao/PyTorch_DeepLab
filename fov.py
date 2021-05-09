@@ -79,8 +79,12 @@ def test3():
 
 
 if __name__=="__main__":
+    test1()
+    print()
     test2()
-    torchvision.models.resnet50()
+    print()
+    test3()
+    #torchvision.models.resnet50()
     #model=torchvision.models.mobilenet_v2()
     # fs=[(3,2),(1,1),(3,2),(1,1)]
     # k,s=field_of_vision(fs)
