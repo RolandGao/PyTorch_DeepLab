@@ -1,7 +1,8 @@
 # PyTorch_DeepLab
 
-Currently, the code supports DeepLabv3+ with many common backbones, such as Mobilenetv2, Mobilenetv3, Resnet, Resnetv2, XceptionAligned, Regnet, EfficientNet, and many more, thanks to the package [timm](https://github.com/rwightman/pytorch-image-models). The code supports 3 datasets, namely PascalVoc, Coco, and Cityscapes.
+This repo is old. Go check out my new model [RegSeg](https://github.com/RolandGao/RegSeg) that achieved SOTA on real-time semantic segmentation on Cityscapes.
 
+Currently, the code supports DeepLabv3+ with many common backbones, such as Mobilenetv2, Mobilenetv3, Resnet, Resnetv2, XceptionAligned, Regnet, EfficientNet, and many more, thanks to the package [timm](https://github.com/rwightman/pytorch-image-models). The code supports 3 datasets, namely PascalVoc, Coco, and Cityscapes.
 
 I trained a few models on Cityscapes and PascalVoc, and will release the weights soon.
 
@@ -24,6 +25,7 @@ name | separable convolution | mIOU | weights
 resnet50d | yes | 77.1 | [link](https://github.com/RolandGao/PyTorch_DeepLab/releases/download/v1.0-alpha/voc_resnet50d)
 regnetx_040 | yes | 77.0 | [link](https://github.com/RolandGao/PyTorch_DeepLab/releases/download/v1.0-alpha/voc_regnetx40)
 regnety_040 | yes | 78.6 | [link](https://github.com/RolandGao/PyTorch_DeepLab/releases/download/v1.0-alpha/voc_regnety40)
+regnetx_080 | no | 77.3 | [link](https://github.com/RolandGao/PyTorch_DeepLab/releases/download/v1.0-alpha/voc_regnetx80)
 mobilenetv2 | no | 72.8 | [link](https://github.com/RolandGao/PyTorch_DeepLab/releases/download/v1.0-alpha/voc_mobilenetv2)
 
 ## Installation
